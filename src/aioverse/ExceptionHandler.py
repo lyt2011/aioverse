@@ -5,12 +5,8 @@ from typing import Callable, Union, Any, Dict
 from aioverse.models.protocols import ExceptionHandlerProtocol
 # 导入错误
 from aioverse.models.errors import ResponseCodeError
-
-"""==================定义返回类型==================="""
-
-CONTINUE	= "continue"
-ABORT		= "abort"
-RETRY		= "retry"
+# 导入错误常量
+from aioverse.const import ExceptionHandlerAction
 
 """===================处理器定义===================="""
 # 专门处理api请求的类
@@ -98,7 +94,7 @@ class ApiRequestExceptionHandler(ExceptionHandlerProtocol):
 		# 返回
 		return (
 			# headers存在 密钥用完
-			ABORT if "headers" in metadata
+			ExceptionHandlerAction.ABORT if "headers" in metadata
 			# 否则就是请求过多
-			else RETRY
+			else ExceptionHandlerAction.RETRY
 		)

@@ -232,7 +232,7 @@ async def toolExecuter(tools: toolsListType) -> List[Any]:
 		详细请看toolsListType的定义
 	"""
 	
-	# 创建协程对象
+	# 创建协程对象列表
 	cores = [
 		function(**params) if asyncio.iscoroutinefunction(function)
 		# 注意 这里不用lambda是因为 **params可能会被替换为最后一个参数

@@ -28,7 +28,7 @@ class Error:
 	# 源信息
 	metaData	: Optional[Any] = None
 
-# 结构体
+# 群上下文结构体
 @dataclass
 class GroupContext:
 	

@@ -68,7 +68,7 @@ class LogFormatter(LogFormatProtocol):
 	
 	def __init__(
 		self,
-		source: str = "common"
+		source	: str = ""
 	):
 		
 		self.source = source

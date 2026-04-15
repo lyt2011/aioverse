@@ -8,9 +8,8 @@ from aioverse.models.errors import *
 from aioverse.models.protocols import OpenAIProtocol, ContextManagerProtocol, KeyManagerProtocol, ExceptionHandlerProtocol
 # 导入数据体
 from aioverse.models.structs import Error
-# 从包导入错误处理器协议
-from aioverse import ExceptionHandler
-
+# 从包导入错误处理常量
+from aioverse.const import ExceptionHandlerAction
 # 类型注解
 from typing import Dict, List, Tuple, Any, Optional
 
@@ -65,19 +64,18 @@ class ChatBuilder:
 class OpenAIClient(OpenAIProtocol):
 	
 	"""
-	对
-	  keyManager
-	  contextManager
-	的高级封装
-	自动获取密钥
+	Q: 为什么我要把__init__的contextManager弄去chatCompletion？
+	A:
+		因为原本我的设计理念是，一个client维护一个上下文
+		然后我发现 这不太行 切换上下文很麻烦
+		所以干脆让__init__管理密钥 对话时单独传入上下文
 	"""
 	
 	def __init__(
 		self,
 		model			: str,
 		apiUrl			: str,
-		keyManager		: Optional[KeyManagerProtocol]		= None,
-		contextManager	: Optional[ContextManagerProtocol]	= None
+		keyManager		: Optional[KeyManagerProtocol]	= None
 	):
 		
 		"""
@@ -91,21 +89,7 @@ class OpenAIClient(OpenAIProtocol):
 		self.model				= model
 		self.apiUrl				= apiUrl
 		self.keyManager			= keyManager
-		self.contextManager		= contextManager
-	
-	def setContextManager(
-		self,
-		contextManager: ContextManagerProtocol
-	) -> None:
 		
-		"""
-		设置上下文管理器
-		"""
-		
-		self.contextManager = contextManager
-		
-		return None
-	
 	def setKeyManager(
 		self,
 		keyManager: KeyManagerProtocol
@@ -142,11 +126,12 @@ class OpenAIClient(OpenAIProtocol):
 	
 	async def chatCompletion(
 		self,
-		headers		: Optional[Dict[str, Any]]	= None	,
-		params		: Optional[Dict[str, Any]]	= None	,
-		body		: Optional[Dict[str, Any]]	= None	,
-		timeout		: int						= 90	,
-		returnRaw	: bool						= False
+		headers			: Optional[Dict[str, Any]]			= None	,
+		params			: Optional[Dict[str, Any]]			= None	,
+		body			: Optional[Dict[str, Any]]			= None	,
+		contextManager	: Optional[ContextManagerProtocol]	= None
+		timeout			: int								= 90	,
+		returnRaw		: bool								= False
 	) -> str:
 		
 		"""
@@ -154,6 +139,7 @@ class OpenAIClient(OpenAIProtocol):
 			params			: 请求参数
 			headers			: 请求头
 			body			: 请求体
+			contextManager	: 上下文管理器
 			timeout			: 超时时间
 			returnRaw		: 返回原始信息
 		task:
@@ -179,7 +165,7 @@ class OpenAIClient(OpenAIProtocol):
 		# 构建请求体 (不同api之间可使用的参数不一样)
 		defaultBody		= {
 			"model"			: self.model,
-			"messages"		: self.contextManager.toList()
+			"messages"		: contextManager.toList()
 		}
 		
 		# 优先保证用户输入有效性
@@ -259,7 +245,7 @@ async def safeRequest(
 		
 		# 解析处理结果
 		# 重试？
-		if handleResult == ExceptionHandler.RETRY:
+		if handleResult == ExceptionHandlerAction.RETRY:
 			
 			# 判断是否超过最大重试次数
 			if _retryCount > maxRetryCount:
@@ -281,7 +267,7 @@ async def safeRequest(
 			)
 		
 		# 终止？
-		if handleResult == ExceptionHandler.ABORT:
+		if handleResult == ExceptionHandlerAction.ABORT:
 			
 			# 直接返回
 			return Error(
