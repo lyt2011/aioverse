@@ -126,12 +126,12 @@ class OpenAIClient(OpenAIProtocol):
 	
 	async def chatCompletion(
 		self,
-		headers			: Optional[Dict[str, Any]]			= None	,
-		params			: Optional[Dict[str, Any]]			= None	,
-		body			: Optional[Dict[str, Any]]			= None	,
-		contextManager	: Optional[ContextManagerProtocol]	= None
-		timeout			: int								= 90	,
-		returnRaw		: bool								= False
+		contextManager	: ContextManagerProtocol			,
+		headers			: Optional[Dict[str, Any]]	= None	,
+		params			: Optional[Dict[str, Any]]	= None	,
+		body			: Optional[Dict[str, Any]]	= None	,
+		timeout			: int						= 90	,
+		returnRaw		: bool						= False
 	) -> str:
 		
 		"""
@@ -212,6 +212,7 @@ class OpenAIClient(OpenAIProtocol):
 # 安全的请求
 async def safeRequest(
 	openAIClient		: OpenAIProtocol,
+	contextManager		: ContextManagerProtocol,
 	exceptionHandler	: ExceptionHandlerProtocol,
 	maxRetryCount		: int = 3,
 	**kwargs
