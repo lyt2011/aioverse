@@ -4,6 +4,8 @@ from . import SearchAI
 from . import ExceptionHandler
 from . import Log
 from . import Typing
+from . import JsonParser
+from . import PlaceHolder
 
 # 基础模块 数据体 协议接口
 from . import models
@@ -13,5 +15,6 @@ from . import managers
 
 __all__ = [
 	"OpenAI", "SearchAI", "Log", "ExceptionHandler", "Typing",
-	"models", "managers"
+	"models", "managers", "JsonParser", "PlaceHolder"
+	
 ]

@@ -3,19 +3,21 @@ from tavily import AsyncTavilyClient
 # 密钥基类
 from aioverse.models.errors import RunOutOfKeysError
 # 密钥管理器协议
-from aioverse.models.protocols import KeyManagerProtocol
-# 日志
-from .Log import AsyncLog, AsyncWriter, LogFormatter
+from aioverse.models.protocols import KeyManagerProtocol, LogProtocol
 
 
 class TavilyClient:
 	
 	def __init__(
 		self,
-		keyManager: KeyManagerProtocol
+		keyManager	: KeyManagerProtocol,
+		asyncLog	: LogProtocol
 	):
 		
 		self.keyManager = keyManager
+		
+		# 日志实例注入
+		self.asyncLog	= asyncLog
 		
 	async def search(
 		self,
@@ -29,31 +31,28 @@ class TavilyClient:
 		
 		options = {
 			"query"          : query,
-			"include_answer" : True,
+			"include_answer" : False,
 			"include_images" : False,
-			"max_results"    : 20,
+			"max_results"    : 10,
 			"timeout"        : 15
 		}
 		options.update(kwargs)
 		
-		# await Log.log(f"传入参数为 {options} 问题: {query}", "Debug")
+		await self.asyncLog.log(f"联网搜索参数 {options}", "debug")
 		
 		# 获取key
-		if not (key := self.keyManager.getCurrentKey()):
-			
-			if not (key := self.keyManager.getNextKey()):
-				
-				raise RunOutOfKeysError
+		key = self.keyManager.getAvailableKey()
 		
-		# await Log.log(f"开始联网搜索 {query}", "info")
+		await self.asyncLog.log(f"开始联网搜索 {query}", "debug")
 		
 		_response = await (
 			AsyncTavilyClient(api_key=key)
 			.search(**options)
 		)
 		
-		response = _response.get("answer", "Error")
+		# response = _response.get("answer", "Error")
+		response = _response.get("results", "Error")
 		
-		# await Log.log(f"联网搜索 {query} 完成: {response}", "info")
+		await self.asyncLog.log(f"联网搜索 {query} 结果: {response}", "debug")
 		
 		return response

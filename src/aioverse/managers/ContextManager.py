@@ -5,6 +5,9 @@ from copy import deepcopy
 # 抽象接口
 from aioverse.models.protocols import ContextManagerProtocol
 
+# 上下文对象+提示词对象
+from aioverse.models.structs import Prompt, Context
+
 
 class ContextManager(ContextManagerProtocol):
 	
@@ -12,7 +15,7 @@ class ContextManager(ContextManagerProtocol):
 	
 	def __init__(
 		self,
-		context: List[ Dict[str, str] ] = None
+		context: List[Context] = None
 	):
 		
 		self._context = context if context else []
@@ -23,16 +26,12 @@ class ContextManager(ContextManagerProtocol):
 	# str()
 	def __repr__(self) -> str:
 		
-		_chatData = []
+		chatHistory = [
+			f"{context.role}: {context.content}"
+			for context in self._context
+		]
 		
-		for context in self._context:
-			
-			_chatData.append(
-				f"{context['role']}: "
-				f"{context['content']}"
-			)
-		
-		return "\n".join(_chatData)
+		return "\n".join(chatHistory)
 	
 	# 清空上下文
 	def clear(self) -> None:
@@ -49,12 +48,12 @@ class ContextManager(ContextManagerProtocol):
 		if not self._context: return False
 		
 		# 判断是否已有提示词
-		return self._context[0].get("role") == "system"
+		return self._context[0].role == "system"
 	
 	# 强行修改提示词
 	def setPrompt(
 		self,
-		prompt: str
+		prompt: Prompt
 	) -> None:
 		
 		"""
@@ -62,31 +61,22 @@ class ContextManager(ContextManagerProtocol):
 		提示词存在则更改
 		不存在则添加
 		"""
-		
-		# 生成提示词字典
-		promptDict = {
-			"role"   : f"system",
-			"content": f"{prompt}"
-		}
-		
-		# 处理没有上下文的情况
-		if not self._context:
 			
-			# 没有上下文可直接添加
-			self._context.append(promptDict)
+		# 判断是否已含有提示词
+		if self.hasPrompt():
+			
+			# 直接替换
+			self._context[0] = prompt
 		
-		else:
-			
-			# 获取提示词的角色名 并判断是否为提示词
-			if self._context[0].get("role") == "system":
-				
-				# 直接替换 生成了不用白不用😱😱😱
-				self._context[0] = promptDict
-			
-			# 否则就插入
-			else: self._context.insert(0, promptDict)
+		# 否则就插入
+		else: self._context.insert(0, prompt)
 		
 		return None
+	
+	# 获取提示词
+	def getPrompt(self) -> Prompt | None:
+		
+		return self._context[0] if self.hasPrompt() else None
 	
 	# 删除最后一个上下文
 	def deleteLastContext(self) -> None:
@@ -98,23 +88,20 @@ class ContextManager(ContextManagerProtocol):
 	# 添加单个上下文
 	def addContext(
 		self,
-		context: Dict[str, str]
+		context: Context
 	) -> None:
 		
 		"""向self._context添加单个上下文"""
 		
-		if not isinstance(context, dict):
-			
-			raise ValueError(f"context上下文不能为 {type(context)}")
-		
 		if (
-			not "role"    in context or
-			not "content" in context
+			self.hasPrompt()
+			and context.role == "system"
 		):
 			
-			raise ValueError(
-				f"传入的上下文不含有r"
-				f"ole或content键 {context.keys()}"
+			raise RuntimeError(
+				"不能在已有提示词的上下文管理中"
+				"再次通过addContext添加提示词"
+				"，如需修改请使用setPrompt"
 			)
 		
 		self._context.append(context)
@@ -126,4 +113,38 @@ class ContextManager(ContextManagerProtocol):
 		Dict[str, str]
 	]:
 		
-		return deepcopy(self._context) # 防篡改
+		# 转换上下文
+		return [
+			context.toDict()
+			for context in self._context
+			if isinstance(context, (Context, Prompt)) # 为Context的实例时转换
+		]
+	
+	def isOut(
+		self,
+		maxTokens: int
+	) -> bool:
+		
+		# 遍历聊天记录 获取所有的文本
+		fullContent = [
+			str(context.content).encode("utf-8")
+			for context in self._context
+		]
+		
+		# 计算token
+		totalToken = len(b"".join(fullContent))
+		
+		# 返回超限结果
+		return totalToken // 2 > maxTokens
+	
+	def trim(self) -> None:
+		
+		# 根据实际情况删除上下文
+		if self.hasPrompt():
+				
+			# 删第二个
+			self._context.pop(1)
+			
+		else: self._context.pop(0)
+		
+		return None

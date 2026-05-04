@@ -5,67 +5,64 @@ from aioverse.Log import AsyncLog, AsyncWriter, LogFormatter
 # 导入错误
 from aioverse.models.errors import *
 # 导入协议
-from aioverse.models.protocols import OpenAIProtocol, ContextManagerProtocol, KeyManagerProtocol, ExceptionHandlerProtocol
+from aioverse.models.protocols import OpenAIProtocol, ContextManagerProtocol, KeyManagerProtocol, ExceptionHandlerProtocol, LogProtocol
 # 导入数据体
 from aioverse.models.structs import Error
+# 异步占位函数
+from aioverse.PlaceHolder import NullObject
 # 从包导入错误处理常量
 from aioverse.const import ExceptionHandlerAction
+# json解析器
+from aioverse.JsonParser import deepJsonParser
 # 类型注解
 from typing import Dict, List, Tuple, Any, Optional
 
 """====================库导入===================="""
 
-class ChatBuilder:
-	
-	"""构建对话字典"""
-	
-	@staticmethod
-	def user(content: str) -> Dict[str, str]:
-		
-		data = {
-			"role"		: "user",
-			"content"	: content
-		}
-		
-		return data
-	
-	@staticmethod
-	def ai(content: str) -> Dict[str, str]:
-		
-		data = {
-			"role"		: "assistant",
-			"content"	: content
-		}
-		
-		return data
-	
-	@staticmethod
-	def system(content: str) -> Dict[str, str]:
-		
-		data = {
-			"role"		: "system",
-			"content"	: content
-		}
-		
-		return data
-	
-	@staticmethod
-	def tool(content: dict) -> Dict[str, Dict[str, Any]]:
-		
-		data = {
-			"role"		: "tool",
-			"content"	: content
-		}
-		
-		return data
+# 全局会话
+_globalSession = None
 
-"""====================封装对话==================="""
+# 创建会话
+def createSession() -> None:
+	
+	global _globalSession
+	
+	_globalSession = aiohttp.ClientSession()
+	
+	return None
+
+# 获取会话
+def getSession() -> aiohttp.ClientSession:
+	
+	global _globalSession
+	
+	return _globalSession
+
+# 同步关闭
+def syncCloseSession() -> None:
+	
+	"""
+	注意这个不确保能运行
+	"""
+	
+	asyncio.run(_globalSession.close())
+	
+	return None
+
+# 异步关闭
+async def asyncCloseSession() -> None:
+	
+	await _globalSession.close()
+	
+	return None
+
+"""==============全局会话以及相关函数==============="""
 
 class OpenAIClient(OpenAIProtocol):
 	
 	"""
 	Q: 为什么我要把__init__的contextManager弄去chatCompletion？
-	A:
+	A:srrqq
 		因为原本我的设计理念是，一个client维护一个上下文
 		然后我发现 这不太行 切换上下文很麻烦
 		所以干脆让__init__管理密钥 对话时单独传入上下文
@@ -73,9 +70,11 @@ class OpenAIClient(OpenAIProtocol):
 	
 	def __init__(
 		self,
-		model			: str,
-		apiUrl			: str,
-		keyManager		: Optional[KeyManagerProtocol]	= None
+		model		: str,
+		apiUrl		: str,
+		asyncLog	: Optional[LogProtocol]				= None,
+		keyManager	: Optional[KeyManagerProtocol]		= None,
+		session		: Optional[aiohttp.ClientSession]	= None
 	):
 		
 		"""
@@ -86,9 +85,15 @@ class OpenAIClient(OpenAIProtocol):
 			contextManager	: 上下文管理器
 		"""
 		
-		self.model				= model
-		self.apiUrl				= apiUrl
-		self.keyManager			= keyManager
+		self.model		= model
+		self.apiUrl		= apiUrl
+		self.keyManager	= keyManager
+		
+		# 日志实例注入
+		self.asyncLog	= asyncLog or NullObject()
+		
+		# 会话
+		self.session	= session if session else getSession()
 		
 	def setKeyManager(
 		self,
@@ -100,29 +105,8 @@ class OpenAIClient(OpenAIProtocol):
 		"""
 		
 		self.keyManager = keyManager
-		
-		return None
 	
-	# 从密钥管理器中获取key
-	def getKey(self) -> str:
-		
-		"""
-		从密钥管理器获取key
-		"""
-		
-		# 判断密钥管理器是否未初始化
-		if not self.keyManager:
-			
-			raise RuntimeError("密钥管理器未初始化")
-		
-		key = (
-			# 获取当前key 赋值给key
-			self.keyManager.getCurrentKey()
-			# 如果获取的是空 则获取下一个key
-			or self.keyManager.getNextKey()
-		)
-		
-		return key
+		return None
 	
 	async def chatCompletion(
 		self,
@@ -152,8 +136,18 @@ class OpenAIClient(OpenAIProtocol):
 			ai回复
 		"""
 		
+		await self.asyncLog.log(
+			"chatCompletion 函数被调用",
+			"debug"
+		)
+		
 		# 获取key
-		key				= self.getKey()
+		key				= self.keyManager.getAvailableKey()
+		
+		await self.asyncLog.log(
+			f"密钥获取成功: {key[:10]}...",
+			"debug"
+		)
 		
 		# 构建请求参数 标准api是不需要参数的
 		defaultParams	= {}
@@ -173,20 +167,34 @@ class OpenAIClient(OpenAIProtocol):
 		if params	: defaultParams	.update(params)
 		if body		: defaultBody	.update(body)
 		
+		await self.asyncLog.log(
+			"参数初始化完成 开始请求AI",
+			"debug"
+		)
+		
 		# 开始请求
-		async with aiohttp.ClientSession() as session:
-			async with session.post(
-				url		= self.apiUrl	,
-				headers	= defaultHeaders,
-				params	= defaultParams	,
-				json	= defaultBody	,
-				timeout = timeout
-			) as request:
-				
-				# 获取请求码
-				requestCode = request.status
-				# 获取请求返回
-				rawResponse = await request.json()
+		async with self.session.post(
+			url		= self.apiUrl	,
+			headers	= defaultHeaders,
+			params	= defaultParams	,
+			json	= defaultBody	,
+			timeout = timeout
+		) as request:
+			
+			await self.asyncLog.log(
+				"连接成功 正在等待ai回复",
+				"debug"
+			)
+			
+			# 获取请求码
+			requestCode = request.status
+			# 获取请求返回
+			rawResponse = deepJsonParser(await request.text())
+			
+		await self.asyncLog.log(
+			f"请求完成: {requestCode}",
+			"debug"
+		)
 		
 		# 返回码不为200
 		if requestCode != 200:
@@ -197,12 +205,14 @@ class OpenAIClient(OpenAIProtocol):
 				response	= rawResponse
 			)
 		
+		# await self.asyncLog.log(f"{rawResponse}", "debug")
+		
 		# 尝试获取具体回复
 		response = (
 			rawResponse
-			.get( "choices", [ {} ] )[0] # 默认返回{} 保证下层get正常调用
-			.get( "message", {} )
-			.get( "content", "Error")
+			.get("choices", [{}])[0] # 默认返回{} 保证下层get正常调用
+			.get("message", {})
+			.get("content", "Error")
 		) if not returnRaw else rawResponse
 		
 		return response
@@ -213,8 +223,8 @@ class OpenAIClient(OpenAIProtocol):
 async def safeRequest(
 	openAIClient		: OpenAIProtocol,
 	contextManager		: ContextManagerProtocol,
-	exceptionHandler	: ExceptionHandlerProtocol,
-	maxRetryCount		: int = 3,
+	exceptionHandler	: Optional[ExceptionHandlerProtocol]	= None,
+	maxRetryCount		: int									= 3,
 	**kwargs
 ) -> Error | str:
 	
@@ -236,14 +246,25 @@ async def safeRequest(
 	
 	try:
 		
-		response = await openAIClient.chatCompletion(**kwargs)
+		response = await openAIClient.chatCompletion(
+			contextManager = contextManager,
+			**kwargs
+		)
 	
 	except ResponseCodeError as error:
 		
-		# 处理这个错误
-		# (这里不处理内部的typeerror错误是因为我通过except获取的错误不可能会错)
-		handleResult = exceptionHandler(error)
+		if not exceptionHandler:
 		
+			# 直接返回
+			error = Error(
+				code		= error.code,
+				message		= f"出现错误且未启用处理器",
+				metaData	= error.response
+			)
+			
+			return error
+		
+		handleResult = exceptionHandler(error)
 		# 解析处理结果
 		# 重试？
 		if handleResult == ExceptionHandlerAction.RETRY:

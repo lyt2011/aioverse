@@ -4,7 +4,7 @@ ai可被调用的工具
 """
 
 # 类型注解
-from typing import Callable, Any, List, Tuple, Dict
+from typing import Callable, Any, List, Tuple, Dict, Optional
 # 专门用于ai使用的类型注解
 from aioverse import Typing
 # 函数工具
@@ -19,12 +19,12 @@ import inspect
 import asyncio
 # io 顾名思义
 import io
+# 生成哈希
+import uuid
+# 异步文件读写
+import aiofiles
 
 """====================库导入===================="""
-
-toolsListType = List[Tuple[Callable[Any, Any], Dict[str, Any]]]
-
-"""====================类型定义==================="""
 
 # ai可用的工具
 class AITools:
@@ -42,32 +42,82 @@ class AITools:
 	_searchFunc: Callable[str, str] = None
 	
 	@staticmethod
-	async def searchOnline(query: Typing.String) -> str:
+	async def searchOnline(
+		query: Typing.String
+	) -> str:
 		
 		"""
-		联网搜索一个问题 并自动整合搜索结果
-		
-		args:
-			query: 需要搜索的问题 str
-		results:
-			搜索结果: str
+		联网搜索一个问题，将结果写入文件后返回与文件对应的哈希值
 		"""
 		
-		# 联网搜索函数不为None时 获取联网搜索结果 否则结果就是""
-		searchOnlineResult = await __class__._searchFunc(
+		# 搜索具体内容
+		searchOnlineResult	= await __class__._searchFunc(
 			query = query
-		) if __class__._searchFunc else ""
+		) if __class__._searchFunc else "联网搜索已被禁用"
 		
-		return f"联网搜索结果: {searchOnlineResult}"
+		# 随机生成一串哈希
+		fileHash			= uuid.uuid4().hex
+		
+		# 哈希直接作为文件名写入/tmp
+		async with aiofiles.open(
+			f"/tmp/{fileHash}",
+			"w",
+			encoding="utf-8"
+		) as file:
+			
+			await file.write(searchOnlineResult)
+		
+		# 返回这串哈希
+		return f"{fileHash}"
+	
+	@staticmethod
+	async def readFileByHash(
+		hash: Typing.String
+	) -> str:
+		
+		"""
+		通过哈希值获取文件内容
+		"""
+		
+		async with aiofiles.open(
+			f"/tmp/{hash}",
+			encoding="utf-8"
+		) as file:
+			
+			fileContent = await file.read()
+		
+		return fileContent
+	
+	@staticmethod
+	async def writeFileByHash(
+		hash: Typing.String,
+		path: Typing.String
+	) -> str:
+		
+		"""
+		通过hash值获取文件内容
+		并写入到path指定的文件
+		"""
+		
+		# 通过readFileByHash读取哈希文件内容
+		fileContent = await __class__.readFileByHash(hash=hash)
+		
+		# 写入path
+		async with aiofiles.open(
+			path,
+			"w",
+			encoding="utf-8"
+		) as file:
+			
+			await file.write(fileContent)
+		
+		return f"{path} 写入成功"
 	
 	@staticmethod
 	def getBeijingTime() -> str:
 		
 		"""
 		获取当前北京时间
-		
-		底层通过datetime库实现
-		封装为字符串str返回
 		"""
 		
 		return f"当前北京时间: {datetime.now()}"
@@ -77,12 +127,6 @@ class AITools:
 		
 		"""
 		计算两数只和
-		
-		args:
-			a: 第一个加数 int
-			b: 第二个加数 int
-		results:
-			string类型的 a + b 结果 str
 		"""
 		
 		return f"{a}+{b} 的结果是: {a + b}"
@@ -92,11 +136,6 @@ class AITools:
 		
 		"""
 		同步执行python代码
-		
-		args:
-			code: 需要执行的代码 str
-		results:
-			代码执行结果 str
 		"""
 		
 		# 创建字符串输出缓冲区
@@ -120,92 +159,58 @@ class AITools:
 
 """====================类工具===================="""
 
-def functionToDict(
-	function: Callable[Any, Any]
-) -> Dict[str, Any]:
+# 函数工具
+class FunctionTools:
 	
-	"""
-	把函数转为dict
-	"""
-	
-	# 函数的信息
-	functionInfo				= {
-		"name"			: "unknown",
-		"description"	: "unknown",
-		"params"		: {}
-	}
-	
-	# 函数名
-	functionInfo["name"]		= function.__name__
-	# 函数文档(描述)
-	functionInfo["description"]	= function.__doc__
-	
-	# 获取函数签名 并通过函数签名获取参数信息
-	functionSignature			= inspect.signature(function)
-	
-	# 遍历函数参数信息 获取参数名/参数
-	for paramName, param in functionSignature.parameters.items():
+	# 函数参数转字典
+	@staticmethod
+	def functionParamToDict(
+		function: Callable[Any, Any]
+	) -> Dict[str, Any]:
 		
-		# 参数类型
-		paramType							= str(param.annotation)
-		# 参数是否必须
-		paramRequired						= param.default == inspect.Parameter.empty
+		"""
+		函数参数转Dict
+		"""
 		
-		# 创建一个新的 paramName 键
-		functionInfo["params"][paramName]	= {
-			# 参数支持的类型
-			"type"		: paramType,
-			# 默认值 当参数必须时 填入"无默认值"
-			# 当参数不是必须时 填入默认值 param.default
-			"default"	: param.default if not paramRequired else "无默认值",
-			# 该参数是否必须
-			"required"	: paramRequired
+		# 参数
+		params = {}
+		
+		# 提取参数名与参数信息
+		paramInformation	= inspect.signature(function).parameters.items()
+		
+		# 遍历所有参数 获取信息
+		for name, param in paramInformation:
+			
+			# 参数类型
+			paramType		= str(param.annotation)
+			# 参数是否必须
+			is_required		= param.default == inspect.Parameter.empty
+			
+			params[name]	= {
+				"type"		: str(param.annotation),
+				"default"	: None if is_required else param.default,
+				"required"	: is_required
+			}
+		
+		return params
+	
+	# 函数转字典
+	@staticmethod
+	def functionToDict(
+		function: Callable[Any, Any]
+	) -> Dict[str, Any]:
+		
+		data = {
+			"name"			: function.__name__,
+			"description"	: function.__doc__,
+			"params"		: __class__.functionParamToDict(function)
 		}
 		
-	return functionInfo
+		return data
 
-# 解析工具列表并从xx类中获取所需工具
-def extractTools(
-	classObj	: "AITools",
-	tools		: List[ Dict[ str, Dict[ str, Any ] ] ]
-) -> toolsListType:
-	
-	"""
-	args:
-		classObj 	: 任意一个拥有函数的容器
-		tools 		: 装载工具的列表
-	results:
-		一个包含(函数 函数参数)的字典
-	"""
-	
-	# 返回结果
-	result = []
-	
-	# 获取所有工具
-	for tool in tools:
-		
-		print(tool)
-		
-		# 获取函数名 函数参数
-		toolName, toolParams = tool["name"], tool["params"]
-		
-		# 获取从classObj该函数
-		toolObj = getattr(classObj, toolName, None)
-		
-		# 如果获取成功 则添加返回结果
-		if toolObj: result.append(
-			(
-				toolObj,
-				toolParams
-			)
-		)
-	
-	# 返回最终结果
-	return result
-
-# 获取一个类的所有可调用方法
-def getClassFunction(
-	classObject
+# 获取一个实例的所有可调用方法
+def getFunctionFromObject(
+	instance: type
 ) -> List[Tuple[str, Callable[Any, Any]]]:
 	
 	"""
@@ -214,12 +219,15 @@ def getClassFunction(
 	"""
 	
 	return inspect.getmembers(
-		classObject,
+		instance,
 		predicate=inspect.isfunction
 	)
 
 # 工具执行器
-async def toolExecuter(tools: toolsListType) -> List[Any]:
+async def toolExecuter(
+	tools	: List[Dict[str, Dict[str, Any]]],
+	obj		: Optional[type] = None
+) -> List[Any]:
 	
 	"""
 	解析所有工具并创建协程
@@ -227,23 +235,43 @@ async def toolExecuter(tools: toolsListType) -> List[Any]:
 	
 	支持同步 异步函数
 	
-	args:
-		工具列表
-		详细请看toolsListType的定义
+	理想的tools参数:
+	[
+		{
+			"searchOnline": {
+				"query": "蔡徐坤"
+			}
+		},
+		{
+			"add": {
+				"a": 1,
+				"b": 2
+			}
+		}
+	]
+	即一个列表的每一个元素都是一个工具信息
+	工具信息即以工具名为键，参数字典为值的字典
 	"""
 	
+	# 转换str为相应函数
+	functionAndParams	= [
+		(getattr(obj, name), params)
+		for toolDict in tools
+		for name, params in toolDict.items()
+	]
+	
 	# 创建协程对象列表
-	cores = [
+	coros				= [
 		function(**params) if asyncio.iscoroutinefunction(function)
 		# 注意 这里不用lambda是因为 **params可能会被替换为最后一个参数
-		else asyncio.to_thread( partial(function, **params) )
-		for function, params in tools
+		else asyncio.to_thread(partial(function, **params))
+		for function, params in functionAndParams
 	]
 	
 	# 直接并发
 	results = await asyncio.gather(
-		*cores,
-		return_exceptions=True # 错误会当做字符串返回
+		*coros,
+		return_exceptions=True # 错误会返回
 	)
 	
 	# 返回处理结果
@@ -253,5 +281,9 @@ async def toolExecuter(tools: toolsListType) -> List[Any]:
 
 if __name__ == "__main__":
 	
-	print(functionToDict(AITools.getBeijingTime))
-	print(functionToDict(AITools.searchOnline))
+	tools	= {
+		name: FunctionTools.functionToDict(function)
+		for name, function in getFunctionFromClass(AITools)
+	}
+	
+	print(tools)

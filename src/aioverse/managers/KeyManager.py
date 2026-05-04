@@ -93,3 +93,15 @@ class KeyManager(KeyManagerProtocol):
 		self._keysList.remove(key)
 		
 		return None
+	
+	# 获取可用key
+	def getAvailableKey(self) -> str | None:
+		
+		key = (
+			# 获取当前key 赋值给key
+			self.getCurrentKey()
+			# 如果获取的是空 则获取下一个key
+			or self.getNextKey()
+		)
+		
+		return key

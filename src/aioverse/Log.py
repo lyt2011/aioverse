@@ -11,6 +11,8 @@ from aioverse.models.protocols import LogProtocol, LogWriteProtocol, LogFormatPr
 import asyncio
 # 异步文件实现
 import aiofiles
+# 系统控制
+import sys
 
 
 class BaseLog(LogProtocol):
@@ -202,7 +204,8 @@ class AsyncLog(BaseLog):
 		)
 		
 		# 显示日志
-		print(logTextColor) # 显示有颜色的
+		sys.__stdout__.write(logTextColor) # 显示有颜色的
+		sys.__stdout__.flush()
 		
 		# 写入日志
 		await self.writer.write(f"{logText}\n") # 写入没颜色的
@@ -235,24 +238,44 @@ class SyncLog(BaseLog):
 			level = level
 		)
 		
-		print(logTextColor)
+		sys.__stdout__.write(logTextColor) # 显示有颜色的
+		sys.__stdout__.flush()
 		
 		self.writer.write(f"{logText}\n")
 		
 		return None
 		
-if __name__ == "__main__":
+# 便捷的日志获取
+def getLog(
+	fileName: str,
+	source	: str,
+	isAsync	: bool = False
+) -> BaseLog:
 	
-	sw = SyncWriter("test.log", bufSize=5) # 触发写入测试
-	lf = LogFormatter()
+	"""
+	除了文件名与来源
+	其他全部采用默认值
+	"""
 	
-	sl = SyncLog(
-		formatter=lf,
-		writer=sw
-	)
+	# 格式化函数不支持异步
+	formatter = LogFormatter(source)
 	
-	sl.log(text="测试日志", level="Info")
-	sl.log(text="测试日志", level="Warn")
-	sl.log(text="测试日志", level="Debug")
-	sl.log(text="测试日志", level="Error")
-	sl.log(text="测试日志", level="Other")
+	if isAsync:
+		
+		writer		= AsyncWriter(fileName)
+		
+		logObject	= AsyncLog(
+			writer		= writer,
+			formatter	= formatter
+		)
+	
+	else:
+		
+		writer		= SyncWriter(fileName)
+		
+		logObject	= SyncLog(
+			writer		= writer,
+			formatter	= formatter
+		)
+	
+	return logObject
