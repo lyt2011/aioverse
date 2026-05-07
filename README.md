@@ -1,3 +1,10 @@
+# 0.2.4更新日志
+- 为`Context`类添加了一个`token`参数
+  - 默认值为`None`
+  - 当值不为默认值时->`len(Context)`返回的是`self.token`的值
+  - 当值为默认值时->`len(Context)`返回`self.content`的`__len__`方法返回值
+  - 这是为了后续自定义上下文占用token预留了**接口**，增加**灵活性**
+
 # 0.2.3更新日志
 
 ## Item优化
