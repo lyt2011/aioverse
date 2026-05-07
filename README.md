@@ -1,3 +1,11 @@
+# 0.2.3更新日志
+
+## Item优化
+1. 增加` __slots__ `属性，优化性能占用
+2. ` __getattr__ `与` __setattr__ `使用`self._mapping`字典代理
+3. `toDict()`返回一个**浅复制**的字典
+4. `toDict()`与`toString()`支持动态属性
+
 # 0.2.2更新日志
 1. 为一些实例添加了` __slots__ `属性，**优化内存使用**
 2. 将`ContentArray`的`addContent'`方法独立出2个方法

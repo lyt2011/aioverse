@@ -141,7 +141,7 @@ class ContentArray:
 		content = Content(type, data)
 		# 调用addContent加入
 		self.addContent(
-			content = content
+			content = content,
 			index	= index
 		)
 		

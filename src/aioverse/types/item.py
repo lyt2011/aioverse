@@ -1,50 +1,56 @@
 from typing import Optional, Any, Dict
 
+
 import orjson
 
 
 class Item:
 	
 	"""
-	存放数据的物件
-	一般用完就丢 用于函数之间的数据传输
-	
-	不支持动态的toDict
+	一般用于函数之间的数据传输
 	"""
+	
+	__slots__ = (
+		"_default",
+		"_mapping"
+	)
 	
 	def __init__(
 		self,
-		_default_result: Optional[Any] = None,
+		default: Optional[Any] = None,
 		**kwargs
 	):
 		
-		# 默认返回值
-		self._default_result	= _default_result
+		# 设置默认返回值
+		object.__setattr__(self, "_default", default)
+		# 设置映射表
+		object.__setattr__(self, "_mapping", kwargs)
 		
-		for key, value in kwargs.items():
-			
-			# 判断是否可能为关键方法
-			if key.startswith("__") and key.endswith("__"):
-				
-				raise TypeError(f"不可修改关键方法 ({key})")
-			
-			setattr(self, key, value)
-		
-		# 这个kwargs便于转字典
-		self._kwargs			= kwargs
 	
-	def __getattr__(self, name: str) -> None:
+	def __setattr__(self, key: str, value: Any):
 		
-		"""
-		这里直接返回none
-		因为能运行这个函数证明已经是不存在了
-		"""
+		# 过滤__slots__
+		if key == "_mapping":
+			
+			raise RuntimeError("不可修改映射表")
 		
-		return self._default_result
+		elif key == "_default":
+			
+			object.__setattr__(self, key, value)
+		
+		else:
+			
+			self._mapping[key] = value
+		
+		return None
+	
+	def __getattr__(self, name: str) -> Any:
+		
+		return self._mapping.get(name, self._default)
 	
 	def toDict(self) -> Dict[str, Any]:
 		
-		return self._kwargs
+		return self._mapping.copy()
 	
 	def toString(self) -> str:
 		
