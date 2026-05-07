@@ -1,16 +1,14 @@
 """====================库导入===================="""
 # 类型注解
 from typing import Callable, Union, Any, Dict
-# 错误协议
-from aioverse.models.protocols import ExceptionHandlerProtocol
 # 导入错误
-from aioverse.models.errors import ResponseCodeError
+from aioverse.errors import ResponseCodeError
 # 导入错误常量
 from aioverse.const import ExceptionHandlerAction
 
 """===================处理器定义===================="""
 # 专门处理api请求的类
-class ApiRequestExceptionHandler(ExceptionHandlerProtocol):
+class ApiRequestExceptionHandler:
 	
 	def __init__(self):
 		

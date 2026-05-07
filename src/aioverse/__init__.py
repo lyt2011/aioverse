@@ -8,13 +8,15 @@ from . import JsonParser
 from . import PlaceHolder
 
 # 基础模块 数据体 协议接口
-from . import models
+from . import types
+from . import errors
+from . import protocols
 
 # 管理器
 from . import managers
 
 __all__ = [
 	"OpenAI", "SearchAI", "Log", "ExceptionHandler", "Typing",
-	"models", "managers", "JsonParser", "PlaceHolder"
-	
+	"types", "managers", "JsonParser", "PlaceHolder", "errors",
+	"protocols"
 ]

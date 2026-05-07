@@ -1,16 +1,18 @@
 # 异步联网搜索AI客户端
 from tavily import AsyncTavilyClient
-# 密钥基类
-from aioverse.models.errors import RunOutOfKeysError
-# 密钥管理器协议
-from aioverse.models.protocols import KeyManagerProtocol, LogProtocol
+
+
+# 日志协议
+from aioverse.protocols import LogProtocol
+# 密钥管理器
+from aioverse.managers import KeyManager
 
 
 class TavilyClient:
 	
 	def __init__(
 		self,
-		keyManager	: KeyManagerProtocol,
+		keyManager	: KeyManager,
 		asyncLog	: LogProtocol
 	):
 		

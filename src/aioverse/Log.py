@@ -6,7 +6,7 @@ from datetime import datetime
 # 类型注解
 from typing import Callable, Awaitable, Tuple, Optional
 # 导入接口
-from aioverse.models.protocols import LogProtocol, LogWriteProtocol, LogFormatProtocol
+from aioverse.protocols import LogProtocol, LogWriteProtocol, LogFormatProtocol
 # 异步实现
 import asyncio
 # 异步文件实现

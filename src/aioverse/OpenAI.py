@@ -3,13 +3,15 @@ import aiohttp
 # 从包导入日志
 from aioverse.Log import AsyncLog, AsyncWriter, LogFormatter
 # 导入错误
-from aioverse.models.errors import *
+from aioverse.errors import *
 # 导入协议
-from aioverse.models.protocols import OpenAIProtocol, ContextManagerProtocol, KeyManagerProtocol, ExceptionHandlerProtocol, LogProtocol
+from aioverse.protocols import OpenAIProtocol, LogProtocol
 # 导入数据体
-from aioverse.models.structs import Error
+from aioverse.types import Error
 # 异步占位函数
 from aioverse.PlaceHolder import NullObject
+# 上下文 密钥管理器
+from aioverse.managers import ContextManager, KeyManager
 # 从包导入错误处理常量
 from aioverse.const import ExceptionHandlerAction
 # json解析器
@@ -73,7 +75,7 @@ class OpenAIClient(OpenAIProtocol):
 		model		: str,
 		apiUrl		: str,
 		asyncLog	: Optional[LogProtocol]				= None,
-		keyManager	: Optional[KeyManagerProtocol]		= None,
+		keyManager	: Optional[KeyManager]				= None,
 		session		: Optional[aiohttp.ClientSession]	= None
 	):
 		
@@ -97,7 +99,7 @@ class OpenAIClient(OpenAIProtocol):
 		
 	def setKeyManager(
 		self,
-		keyManager: KeyManagerProtocol
+		keyManager: KeyManager
 	) -> None:
 		
 		"""
@@ -110,7 +112,7 @@ class OpenAIClient(OpenAIProtocol):
 	
 	async def chatCompletion(
 		self,
-		contextManager	: ContextManagerProtocol			,
+		contextManager	: ContextManager					,
 		headers			: Optional[Dict[str, Any]]	= None	,
 		params			: Optional[Dict[str, Any]]	= None	,
 		body			: Optional[Dict[str, Any]]	= None	,
@@ -169,7 +171,7 @@ class OpenAIClient(OpenAIProtocol):
 		
 		await self.asyncLog.log(
 			"参数初始化完成 开始请求AI",
-			"debug"
+			"info"
 		)
 		
 		# 开始请求
@@ -181,11 +183,6 @@ class OpenAIClient(OpenAIProtocol):
 			timeout = timeout
 		) as request:
 			
-			await self.asyncLog.log(
-				"连接成功 正在等待ai回复",
-				"debug"
-			)
-			
 			# 获取请求码
 			requestCode = request.status
 			# 获取请求返回
@@ -193,7 +190,7 @@ class OpenAIClient(OpenAIProtocol):
 			
 		await self.asyncLog.log(
 			f"请求完成: {requestCode}",
-			"debug"
+			"info"
 		)
 		
 		# 返回码不为200
@@ -205,7 +202,7 @@ class OpenAIClient(OpenAIProtocol):
 				response	= rawResponse
 			)
 		
-		# await self.asyncLog.log(f"{rawResponse}", "debug")
+		await self.asyncLog.log(f"{rawResponse}", "debug")
 		
 		# 尝试获取具体回复
 		response = (
@@ -222,9 +219,9 @@ class OpenAIClient(OpenAIProtocol):
 # 安全的请求
 async def safeRequest(
 	openAIClient		: OpenAIProtocol,
-	contextManager		: ContextManagerProtocol,
-	exceptionHandler	: Optional[ExceptionHandlerProtocol]	= None,
-	maxRetryCount		: int									= 3,
+	contextManager		: ContextManager,
+	exceptionHandler	: "ExceptionHandlerBase"	= None	, # TODO
+	maxRetryCount		: int						= 3		,
 	**kwargs
 ) -> Error | str:
 	
@@ -233,7 +230,7 @@ async def safeRequest(
 	
 	args:
 		openAIClient		: openai客户端 OpenAIProtocol协议
-		exceptionHandler	: 错误处理器 ExceptionHandlerProtocol协议
+		exceptionHandler	: 错误处理器 继承ExceptionHandlerBase
 		maxRetryCount		: 最大重试次数 int 默认3
 		retryCount			: 已重试次数 int 默认0
 		**kwargs			: 用于装载请求参数 dict
