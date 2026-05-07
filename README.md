@@ -2,7 +2,7 @@
 
 ## **兼容多模态**
 - 添加`Content`, `ContentArray`等抽象类以支持多模态
-  - 目前关系**`Content`**->**`ContentArray`**->**`Context`**->**`ContextManager`**
+  - 目前关系`Content`->`ContentArray`->`Context`->`ContextManager`
 - **`Content` 更新**
   - `upload_type`: 上传的类型
   - `upload_data`: 上传的数据
