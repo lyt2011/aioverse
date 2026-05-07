@@ -104,6 +104,10 @@ class ContentArray:
 			len(content)
 			for content in self._contentArray
 		])
+	
+	def __bool__(self) -> bool:
+		
+		return len(self._contentArray) > 0
 		
 	def toList(self) -> List[Dict[str, Any]]:
 		
@@ -115,13 +119,22 @@ class ContentArray:
 	
 	def addContent(
 		self,
-		type	: str,
-		text	: str,
-		index	: int | None = None
+		type	: str | None		= None,
+		data	: str | None		= None,
+		index	: int | None		= None,
+		content	: Content | None	= None
 	) -> "self":
 		
-		# 否则实例化一个Content
-		content			= Content(type, text)
+		"""
+		至少需要传入(type, data)或者单独传入content
+		如果都传入，content的优先级更高
+		"""
+		
+		# 使用传入content或实例化一个Content
+		content			= (
+			Content(type, data) if content is None
+			else content
+		)
 		
 		# 判断插入模式 默认值append
 		if index is None: self._contentArray.append(content)

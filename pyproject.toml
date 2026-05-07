@@ -1,12 +1,12 @@
 [project]
 name = "aioverse"
-version = "0.2.0"
+version = "0.2.1"
 description = "基于aiohttp实现的openai请求库，支持工具调用+上下文管理+密钥轮询"
 readme = "README.md"
-requires-python = ">=3.10"
+requires-python = ">=3.11"
 
 dependencies = [
-    "aiohttp==3.13.3",
+    "aiohttp>=3.11",
     "aiofiles==25.1.0",
     "tavily==1.1.0",
     "orjson==3.11.8"

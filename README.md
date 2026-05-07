@@ -1,3 +1,7 @@
+# 0.2.1更新日志
+- 让`types.content_array.ContentArray.addContent`支持使用`types.content.Content`作为参数传入
+  - 具体可查看`aioverse/types/content_array.py`
+
 # 0.2.0更新日志
 
 ## **兼容多模态**
@@ -8,7 +12,7 @@
   - `upload_data`: 上传的数据
 - **`ContentArray` 更新**
   - 可**链式调用**添加`Content`
-  toList() 方法输出类似
+  - toList() 方法输出类似
   ```json
   [
     {"type": "text", "text": "请描述这张图片"},
@@ -23,10 +27,10 @@
 - 为`Content`, `ContentArray`, `Context`均**添加了` __len__ `**，便于**token统计**
 
 ## 更改**文件关系**
-  1. 原`model`被**弃用**
-  2. 结构体分类为`types`
-  3. 错误分类为`errors`
-  4. 协议分类为`protocols`
+  1. 原`model/`被**弃用**
+  2. **结构体**分类为`types/`
+  3. **错误**分类为`errors/`
+  4. **协议**分类为`protocols/`
 
 ## 协议弃用
 - `KeyManagerProtocol`, `ContextManagerProtocol`等协议被弃用
@@ -34,4 +38,4 @@
   - 简单的类**无需**继承协议
   - 所有依赖`KeyManagerProtocol`与`ContextManagerProtocol`的脚本
     - `KeyManagerProtocol`**替换**为`KeyManager`
-    - `ContextManagerProtocol`**替换**为`ContextManager`**
+    - `ContextManagerProtocol`**替换**为`ContextManager`
