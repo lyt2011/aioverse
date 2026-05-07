@@ -7,14 +7,14 @@
   - `upload_type`: 上传的类型
   - `upload_data`: 上传的数据
 - **`ContentArray` 更新**
-  实现类似
+  - 可**链式调用**添加`Content`
+  toList() 方法输出类似
   ```json
   [
     {"type": "text", "text": "请描述这张图片"},
     {"type": "image_url", "image_url": "xxx.com/picture.png"}
   ]
   ```
-  的操作
 - **`Context` 更新**
   - 支持`ContentArray`与`str`**混合使用**
 - **`ContextManager` 修复**
