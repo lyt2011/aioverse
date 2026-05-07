@@ -119,28 +119,32 @@ class ContentArray:
 	
 	def addContent(
 		self,
-		type	: str | None		= None,
-		data	: str | None		= None,
-		index	: int | None		= None,
-		content	: Content | None	= None
+		content	: Content,
+		index	: int | None = None
 	) -> "self":
-		
-		"""
-		至少需要传入(type, data)或者单独传入content
-		如果都传入，content的优先级更高
-		"""
-		
-		# 使用传入content或实例化一个Content
-		content			= (
-			Content(type, data) if content is None
-			else content
-		)
 		
 		# 判断插入模式 默认值append
 		if index is None: self._contentArray.append(content)
 		else			: self._contentArray.insert(index, content)
 		
 		# 返回自身 链式调用
+		return self
+	
+	def addData(
+		self,
+		type	: str,
+		data	: Any,
+		index	: int | None = None,
+	) -> "self":
+		
+		# 通过参数构建Content
+		content = Content(type, data)
+		# 调用addContent加入
+		self.addContent(
+			content = content
+			index	= index
+		)
+		
 		return self
 	
 	# 获取状态

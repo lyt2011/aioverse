@@ -5,6 +5,11 @@ from .content_array import ContentArray
 
 class Context:
 	
+	__slots__ = [
+		"role",
+		"content"
+	]
+	
 	def __init__(
 		self,
 		role	: str,

@@ -11,5 +11,12 @@ text = Content(
 # 附件
 file = Content(
 	"image_url",
-	
+	{"url": "cxk"}
 )
+
+# 组装列表
+contents = ContentArray()
+
+contents.addContent(text).addContent(file)
+
+# 组装上下文

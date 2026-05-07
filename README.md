@@ -1,3 +1,9 @@
+# 0.2.2更新日志
+1. 为一些实例添加了` __slots__ `属性，**优化内存使用**
+2. 将`ContentArray`的`addContent'`方法独立出2个方法
+  - `addContent`: 仅支持使用`Content`实例添加
+  - `addData`: **自动**通过传入参数构建`Content`对象，通过调用`addContent`方法添加
+
 # 0.2.1更新日志
 - 让`types.content_array.ContentArray.addContent`支持使用`types.content.Content`作为参数传入
   - 具体可查看`aioverse/types/content_array.py`

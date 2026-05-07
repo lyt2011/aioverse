@@ -11,6 +11,8 @@ class ContextManager:
 	
 	"""管理上下文"""
 	
+	__slots__ = ["_context"]
+	
 	def __init__(
 		self,
 		context: List[Context] = None

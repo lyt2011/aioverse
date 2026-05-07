@@ -5,6 +5,8 @@ from typing import List
 class KeyManager:
 	
 	"""密钥管理"""
+		
+	__slots__ = ["_keysList", "usingKey"]
 	
 	def __init__(
 		self,
