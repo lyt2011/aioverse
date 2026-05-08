@@ -7,7 +7,7 @@ from aioverse.errors import *
 # 导入协议
 from aioverse.protocols import OpenAIProtocol, LogProtocol
 # 导入数据体
-from aioverse.types import Error
+from aioverse.types import Error, Item
 # 异步占位函数
 from aioverse.PlaceHolder import NullObject
 # 上下文 密钥管理器
@@ -112,13 +112,12 @@ class OpenAIClient(OpenAIProtocol):
 	
 	async def chatCompletion(
 		self,
-		contextManager	: ContextManager					,
-		headers			: Optional[Dict[str, Any]]	= None	,
-		params			: Optional[Dict[str, Any]]	= None	,
-		body			: Optional[Dict[str, Any]]	= None	,
-		timeout			: int						= 90	,
-		returnRaw		: bool						= False
-	) -> str:
+		contextManager	: ContextManager		,
+		headers			: Dict[str, Any]	= {},
+		params			: Dict[str, Any]	= {},
+		body			: Dict[str, Any]	= {},
+		timeout			: int				= 90,
+	) -> Item:
 		
 		"""
 		args:
@@ -127,7 +126,6 @@ class OpenAIClient(OpenAIProtocol):
 			body			: 请求体
 			contextManager	: 上下文管理器
 			timeout			: 超时时间
-			returnRaw		: 返回原始信息
 		task:
 			构建所有参数
 			并请求ai
@@ -138,48 +136,28 @@ class OpenAIClient(OpenAIProtocol):
 			ai回复
 		"""
 		
-		await self.asyncLog.log(
-			"chatCompletion 函数被调用",
-			"debug"
-		)
-		
-		# 获取key
-		key				= self.keyManager.getAvailableKey()
-		
-		await self.asyncLog.log(
-			f"密钥获取成功: {key[:10]}...",
-			"debug"
-		)
-		
-		# 构建请求参数 标准api是不需要参数的
-		defaultParams	= {}
-		# 构建请求头
-		defaultHeaders	= {
-			"Authorization"	: key,
-			"Content-Type"	: "application/json"
+		# 构建请求参数 优先保证用户输入有效性
+		params	= {
+			**params
 		}
-		# 构建请求体 (不同api之间可使用的参数不一样)
-		defaultBody		= {
+		headers	= {
+			"Authorization"	: self.keyManager.getAvailableKey(),
+			"Content-Type"	: "application/json",
+			**headers
+		}
+		body	= {
 			"model"			: self.model,
-			"messages"		: contextManager.toList()
+			"messages"		: contextManager.toList(),
+			**body
 		}
 		
-		# 优先保证用户输入有效性
-		if headers	: defaultHeaders.update(headers)
-		if params	: defaultParams	.update(params)
-		if body		: defaultBody	.update(body)
-		
-		await self.asyncLog.log(
-			"参数初始化完成 开始请求AI",
-			"info"
-		)
-		
+		await self.asyncLog.log("参数初始化完成 开始请求AI", "info")
 		# 开始请求
 		async with self.session.post(
 			url		= self.apiUrl	,
-			headers	= defaultHeaders,
-			params	= defaultParams	,
-			json	= defaultBody	,
+			headers	= headers		,
+			params	= params		,
+			json	= body			,
 			timeout = timeout
 		) as request:
 			
@@ -187,11 +165,8 @@ class OpenAIClient(OpenAIProtocol):
 			requestCode = request.status
 			# 获取请求返回
 			rawResponse = deepJsonParser(await request.text())
-			
-		await self.asyncLog.log(
-			f"请求完成: {requestCode}",
-			"info"
-		)
+		
+		await self.asyncLog.log(f"请求完成: {requestCode}", "info")
 		
 		# 返回码不为200
 		if requestCode != 200:
@@ -202,17 +177,23 @@ class OpenAIClient(OpenAIProtocol):
 				response	= rawResponse
 			)
 		
-		await self.asyncLog.log(f"{rawResponse}", "debug")
+		# 获取具体信息
+		message = rawResponse.get("choices", [{}])[0].get("message", {})
+		# 获取token用量
+		usage	= rawResponse.get("usage")
 		
-		# 尝试获取具体回复
-		response = (
-			rawResponse
-			.get("choices", [{}])[0] # 默认返回{} 保证下层get正常调用
-			.get("message", {})
-			.get("content", "Error")
-		) if not returnRaw else rawResponse
-		
-		return response
+		return Item(
+			model		= rawResponse.get("model"),
+			request_id	= rawResponse.get("id"),
+			content		= message.get("content"),
+			reasoning	= message.get("reasoning_content"),
+			token		= Item(
+				prompt		= usage.get("prompt_tokens"),
+				completion	= usage.get("completion_tokens"),
+				total		= usage.get("total_tokens"),
+				cached		= usage.get("cached_tokens")
+			)
+		)
 
 """==================对OpenAI的高级封装================="""
 
@@ -223,7 +204,7 @@ async def safeRequest(
 	exceptionHandler	: "ExceptionHandlerBase"	= None	, # TODO
 	maxRetryCount		: int						= 3		,
 	**kwargs
-) -> Error | str:
+) -> Error | Item:
 	
 	"""
 	一个安全的ai请求接口

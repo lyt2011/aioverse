@@ -1,3 +1,37 @@
+# 0.3.0更新日志
+
+## OpenAI.py的OpenAIClient类
+1. 返回类型由`str`改为`Item`，添加了**可扩展性**
+2. 支持返回`token`, `model`, `request_id`, `reasoning`
+  - `token`: token使用量
+  - `model`: 使用的模型
+  - `request_id`: 请求id
+  - `reasoning`: 思维链
+3. 优化请求参数构建逻辑，`headers`, `params`, `body`均采用`**`解包
+4. 问答
+  1. 为什么不返回`rawResponse`原始响应
+    - 太占内存了
+
+## managers.ContextManager
+1. 属性`self._context`更名为`self._contexts`
+2. 添加`_token`属性
+  - 可在实例化时通过`token`可选参数传入
+  ```python
+  ContextManager(token=114514)
+  ```
+  - 也可以在实例化后通过实例的`setToken`方法传入
+  ```python
+  ContextManager().setToken(114514)
+  ```
+3. 新增使用装饰器`property`的`token`方法
+  1. 当`self._token`小于等于`0`->通过遍历`self._contexts`并相加后*1.3
+  2. 当`self._token`大于`0`->直接返回`self._token`
+4. `isOut()`方法更改
+  1. 参数`maxToken`改名为`max_token`
+  2. 使用`self.token`函数来获取token用量
+5. `clear()`方法更新
+  - 添加`keep_prompt`(`bool`)参数，可选是否保留上下文
+
 # 0.2.4更新日志
 - 为`Context`类添加了一个`token`参数
   - 默认值为`None`

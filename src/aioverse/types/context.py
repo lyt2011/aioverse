@@ -29,6 +29,15 @@ class Context:
 			else self.token
 		)
 	
+	def setToken(
+		self,
+		count: int
+	) -> None:
+		
+		self.token = count
+		
+		return None
+	
 	def toDict(self) -> Dict[str, Any]:
 		
 		"""直接调用content的toList方法即可"""
