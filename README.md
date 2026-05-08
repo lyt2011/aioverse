@@ -8,9 +8,6 @@
   - `request_id`: 请求id
   - `reasoning`: 思维链
 3. 优化请求参数构建逻辑，`headers`, `params`, `body`均采用`**`解包
-4. 问答
-  1. 为什么不返回`rawResponse`原始响应
-    - 太占内存了
 
 ## managers.ContextManager
 1. 属性`self._context`更名为`self._contexts`
@@ -27,8 +24,8 @@
   1. 当`self._token`小于等于`0`->通过遍历`self._contexts`并相加后*1.3
   2. 当`self._token`大于`0`->直接返回`self._token`
 4. `isOut()`方法更改
-  1. 参数`maxToken`改名为`max_token`
-  2. 使用`self.token`函数来获取token用量
+  - 参数`maxToken`改名为`max_token`
+  - 使用`self.token`函数来获取token用量
 5. `clear()`方法更新
   - 添加`keep_prompt`(`bool`)参数，可选是否保留上下文
 
