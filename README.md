@@ -151,10 +151,10 @@ for context in context_array:
 - 转为列表
 ```python
 context_manager.toList()
-[
-	{"role": "system", "content": "你是一个AI助手..."},
-	{"role": "user", "content": "你好"}
-]
+# [
+# 	{"role": "system", "content": "你是一个AI助手..."},
+# 	{"role": "user", "content": "你好"}
+# ]
 ```
 - 更多接口可以查看`aioverse/managers/context_manager.py`
 
