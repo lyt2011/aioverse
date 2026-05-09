@@ -73,7 +73,7 @@ class OpenAIClient(OpenAIProtocol):
 	def __init__(
 		self,
 		model		: str,
-		apiUrl		: str,
+		api_url		: str,
 		asyncLog	: Optional[LogProtocol]				= None,
 		keyManager	: Optional[KeyManager]				= None,
 		session		: Optional[aiohttp.ClientSession]	= None
@@ -82,13 +82,13 @@ class OpenAIClient(OpenAIProtocol):
 		"""
 		args:
 			model			: 模型名
-			apiUrl			: api请求网址
+			api_url			: api请求网址
 			keyManager		: 密钥管理器
 			contextManager	: 上下文管理器
 		"""
 		
 		self.model		= model
-		self.apiUrl		= apiUrl
+		self.api_url	= api_url
 		self.keyManager	= keyManager
 		
 		# 日志实例注入
@@ -154,7 +154,7 @@ class OpenAIClient(OpenAIProtocol):
 		await self.asyncLog.log("参数初始化完成 开始请求AI", "info")
 		# 开始请求
 		async with self.session.post(
-			url		= self.apiUrl	,
+			url		= self.api_url	,
 			headers	= headers		,
 			params	= params		,
 			json	= body			,

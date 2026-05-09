@@ -96,20 +96,25 @@ class LogFormatter(LogFormatProtocol):
 			"内有一个不为str"
 		)
 		
+		# 如果没有传入内容 直接返回
+		if not text: return "", ""
+		
 		# 格式化level 便于处理
 		level = level.lower()
 		
 		match level:
 		
-			case "info"	: color = "\033[32m"
+			case "info"			: color = "\033[96m"
 			
-			case "warn"	: color = "\033[33m"
+			case "warn"			: color = "\033[33m"
 			
-			case "error": color = "\033[31m"
+			case "error"		: color = "\033[31m"
 			
-			case "debug": color = "\033[36m"
+			case "debug"		: color = "\033[36m"
 			
-			case _		: color = "\033[0m" # 别的就默认白色
+			case "successful"	: color = "\033[092m"
+			
+			case _				: color = "\033[0m" # 别的就默认白色
 		
 		noColorText = f"[{time} {level} {self.source}] > {text}\n" # 供给日志写入
 		colorText   = f"{color}{noColorText}\033[0m" # 恢复后续正常颜色
@@ -122,7 +127,11 @@ class AsyncWriter(BaseWriter):
 	
 	"""负责异步写入"""
 	
-	async def write(self, text: str) -> None:
+	async def write(
+		self,
+		text	: str,
+		flush	: bool = False
+	) -> None:
 		
 		"""
 		每次调用write都是加入缓冲区
@@ -134,7 +143,10 @@ class AsyncWriter(BaseWriter):
 		
 		self._logBuffer.append(text)
 		
-		if len(self._logBuffer) >= self.bufSize:
+		if (
+			len(self._logBuffer) >= self.bufSize
+			or flush is True
+		):
 			
 			# 连接缓冲区内所有信息
 			textFormatted = "".join(self._logBuffer)
@@ -156,7 +168,11 @@ class SyncWriter(BaseWriter):
 	还得多写一次init😱😱😱
 	"""
 	
-	def write(self, text: str) -> None:
+	def write(
+		self,
+		text	: str,
+		flush	: bool = False
+	) -> None:
 		
 		"""
 		重写AsyncWriter.write
@@ -168,7 +184,10 @@ class SyncWriter(BaseWriter):
 		
 		self._logBuffer.append(text)
 		
-		if len(self._logBuffer) >= self.bufSize:
+		if (
+			len(self._logBuffer) >= self.bufSize
+			or flush is True
+		):
 			
 			textFormatted = "".join(self._logBuffer)
 		
@@ -187,8 +206,9 @@ class AsyncLog(BaseLog):
 		
 	async def log(
 		self,
-		text  : str,
-		level : str = "Info"
+		text	: str,
+		level	: str = "Info",
+		flush	: bool = False
 	) -> None:
 		
 		"""
@@ -208,7 +228,10 @@ class AsyncLog(BaseLog):
 		sys.__stdout__.flush()
 		
 		# 写入日志
-		await self.writer.write(f"{logText}\n") # 写入没颜色的
+		await self.writer.write(
+			text	= f"{logText}",
+			flush	= flush
+		)
 		
 		return None
 
@@ -222,8 +245,9 @@ class SyncLog(BaseLog):
 	
 	def log(
 		self,
-		text  : str,
-		level : str = "Info"
+		text	: str,
+		level	: str = "Info",
+		flush	: bool = False
 	) -> None:
 		
 		"""
@@ -241,12 +265,15 @@ class SyncLog(BaseLog):
 		sys.__stdout__.write(logTextColor) # 显示有颜色的
 		sys.__stdout__.flush()
 		
-		self.writer.write(f"{logText}\n")
+		self.writer.write(
+			text	= f"{logText}",
+			flush	= flush
+		)
 		
 		return None
 		
 # 便捷的日志获取
-def getLog(
+def get_log(
 	fileName: str,
 	source	: str,
 	isAsync	: bool = False
@@ -262,19 +289,15 @@ def getLog(
 	
 	if isAsync:
 		
-		writer		= AsyncWriter(fileName)
-		
 		logObject	= AsyncLog(
-			writer		= writer,
+			writer		= AsyncWriter(fileName),
 			formatter	= formatter
 		)
 	
 	else:
 		
-		writer		= SyncWriter(fileName)
-		
 		logObject	= SyncLog(
-			writer		= writer,
+			writer		= SyncWriter(fileName),
 			formatter	= formatter
 		)
 	

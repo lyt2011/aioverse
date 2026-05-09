@@ -104,7 +104,7 @@ class ContextManager:
 	# 强行修改提示词
 	def setPrompt(
 		self,
-		prompt: Prompt
+		prompt: Prompt | Context
 	) -> None:
 		
 		"""
@@ -160,15 +160,22 @@ class ContextManager:
 		return None
 	
 	# 获取上下文副本
-	def toList(self) -> List[
-		Dict[str, str]
-	]:
+	def toList(
+		self,
+		return_prompt: bool = True
+	) -> List[Dict[str, str]]:
+		
+		# 设置返回类型
+		return_type = (
+			Context if not return_prompt
+			else (Context, Prompt)
+		)
 		
 		# 转换上下文
 		return [
 			context.toDict()
 			for context in self._contexts
-			if isinstance(context, (Context, Prompt)) # 为Context的实例时转换
+			if isinstance(context, return_type)
 		]
 	
 	def isOut(

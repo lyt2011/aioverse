@@ -55,7 +55,7 @@ class JsonManager(dict):
 	
 	def toString(self) -> str:
 		
-		return orjson.dumps(str(self)).decode("utf-8")
+		return orjson.dumps(str(self)).decode()
 	
 	def hasKey(
 		self,
