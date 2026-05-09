@@ -18,11 +18,11 @@ class ContextManager:
 	
 	def __init__(
 		self,
-		context	: List[Context] = None,
-		token	: int			= 0
+		context_array	: List[Context] = None,
+		token			: int			= 0
 	):
 		
-		self._contexts	= context if context else []
+		self._contexts	= context_array if context_array else []
 		self._token		= token
 	
 	# len()

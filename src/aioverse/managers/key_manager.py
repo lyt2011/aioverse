@@ -49,7 +49,7 @@ class KeyManager:
 		"""
 		if len(self._keysList) - 1 < nextIndex: 
 			
-			raise RunOutOfKeysError("没有Key可继续使用")
+			raise RuntimeError("没有Key可继续使用")
 		
 		# 存在则获取该key
 		nextKey					= self._keysList[nextIndex]
@@ -72,6 +72,18 @@ class KeyManager:
 		
 		return currentKey
 	
+	# 获取可用key
+	def getAvailableKey(self) -> str | None:
+		
+		key = (
+			# 获取当前key 赋值给key
+			self.getCurrentKey()
+			# 如果获取的是空 则获取下一个key
+			or self.getNextKey()
+		)
+		
+		return key
+	
 	# 添加密钥
 	def addKey(
 		self,
@@ -93,15 +105,3 @@ class KeyManager:
 		self._keysList.remove(key)
 		
 		return None
-	
-	# 获取可用key
-	def getAvailableKey(self) -> str | None:
-		
-		key = (
-			# 获取当前key 赋值给key
-			self.getCurrentKey()
-			# 如果获取的是空 则获取下一个key
-			or self.getNextKey()
-		)
-		
-		return key
