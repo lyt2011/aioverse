@@ -54,3 +54,20 @@ class Context:
 			"role"		: self.role,
 			"content"	: str(self.content)
 		}
+	
+	# 获取完整实例数据 (用于上下文持久化)
+	def to_raw_dict(self) -> Dict[str, Any]:
+		
+		return {
+			"token": self.token,
+			**self.toDict()
+		}
+	
+	@classmethod
+	def from_dict(cls, data: Dict[str, Any]) -> "Context":
+		
+		"""
+		为保证兼容性 data的值将直接被当做content参数以实例化Context
+		"""
+		
+		return cls(**data)

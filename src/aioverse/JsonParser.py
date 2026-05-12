@@ -25,7 +25,7 @@ def deepJsonParser(json: Any) -> Any:
 				# 尝试使用字面量解析
 				return deepJsonParser(ast.literal_eval(json))
 			
-			except Exception: pass
+			except Exception as e: pass
 		
 		# 都解析失败直接返回自身
 		return json

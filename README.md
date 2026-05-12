@@ -1,3 +1,39 @@
+# 0.3.2更新日志
+
+## Log.py (优化`get_log`方法逻辑)
+1. 添加内部变量`_global_logs`，用于存储日志实例
+2. `get_log`方法传入**完全相同**的参数时
+  - `_global_logs`存在相同参数的键->**直接返回**对应日志实例
+  - 不存在则**创建**并**记录**
+
+## OpenAI.py
+1. 删除`safeRequest`方法
+2. `OpenAIClient.chatCompletion`的参数`contextManager`改名为`context_manager`
+
+## 新增
+1. 为`Content`新增`from_dict`方法，可以通过符合以下格式的字典转为实例
+```python伪代码
+{
+	"type": <类型>,
+	<类型>: <数据>
+}
+```
+2. 为`Context`新增`from_dict`方法，可以将符合以下格式的字典转为Context实例 (`content`的值将被直接传入`Context`实例化，无论是`list`/`str`/`dict`/...)
+```python伪代码
+{
+	"role": <角色>,
+	"content": <内容>
+}
+```
+3. 新增`utils/`文件夹，用于存放辅助工具
+4. 新增`utils/syntax_sugar.py`，语法糖函数
+5. `utils/syntax_sugar.py`新增`build_contexts`函数，用于将OpenAI标准上下文格式转为ContextManager
+6. `aioverse.types.context`新增`to_raw_dict`方法，返回带有`token`, `content`, `role`完整信息的字典
+
+## Future
+1. 将更多使用驼峰命名的函数名/参数改为蛇形命名 (写java写傻了)
+2. 可能会支持流式输出，等我去研究研究OpenAI流式输出格式先😋😋
+
 # 0.3.1更新日志
 
 ## Log.py

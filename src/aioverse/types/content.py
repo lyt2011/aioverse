@@ -8,24 +8,34 @@ class Content:
 	于是想到做这个
 	"""
 	
-	__slots__ = ["content_type", "content_data"]
+	__slots__ = ["_type", "data"]
 	
 	def __init__(
 		self,
-		content_type: str,
-		content_data: Any
+		type: str,
+		data: Any
 	):
 		
-		self.content_type = content_type
-		self.content_data = content_data
+		self._type	= type
+		self.data	= data
 	
 	def __len__(self) -> int:
 		
-		return len(str(self.content_data))
+		return len(str(self.data))
 	
 	def toDict(self) -> Dict[str, Any]:
 		
 		return {
-			"type"				: self.content_type,
-			self.content_type	: self.content_data
+			"type"		: self._type,
+			self._type	: self.data
 		}
+	
+	@classmethod
+	def from_dict(cls, data: Dict[str, Any]) -> "Content":
+		
+		# 先获取类型
+		_type	= data["type"]
+		# 通过类型获取数据
+		data	= data[_type]
+		
+		return cls(type=_type, data=data)

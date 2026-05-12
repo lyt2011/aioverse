@@ -1,6 +1,6 @@
 [project]
 name = "aioverse"
-version = "0.3.1"
+version = "0.3.2"
 description = "基于aiohttp实现的openai请求库，支持工具调用+上下文管理+密钥轮询"
 readme = "README.md"
 requires-python = ">=3.11"

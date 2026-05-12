@@ -19,7 +19,6 @@ from aioverse.JsonParser import deepJsonParser
 # 类型注解
 from typing import Dict, List, Tuple, Any, Optional
 
-"""====================库导入===================="""
 
 # 全局会话
 _globalSession = None
@@ -58,12 +57,11 @@ async def asyncCloseSession() -> None:
 	
 	return None
 
-"""==============全局会话以及相关函数==============="""
 
 class OpenAIClient(OpenAIProtocol):
 	
 	"""
-	Q: 为什么我要把__init__的contextManager弄去chatCompletion？
+	Q: 为什么我要把__init__的context_manager弄去chatCompletion？
 	A:srrqq
 		因为原本我的设计理念是，一个client维护一个上下文
 		然后我发现 这不太行 切换上下文很麻烦
@@ -84,7 +82,7 @@ class OpenAIClient(OpenAIProtocol):
 			model			: 模型名
 			api_url			: api请求网址
 			keyManager		: 密钥管理器
-			contextManager	: 上下文管理器
+			context_manager	: 上下文管理器
 		"""
 		
 		self.model		= model
@@ -112,7 +110,7 @@ class OpenAIClient(OpenAIProtocol):
 	
 	async def chatCompletion(
 		self,
-		contextManager	: ContextManager		,
+		context_manager	: ContextManager		,
 		headers			: Dict[str, Any]	= {},
 		params			: Dict[str, Any]	= {},
 		body			: Dict[str, Any]	= {},
@@ -124,7 +122,7 @@ class OpenAIClient(OpenAIProtocol):
 			params			: 请求参数
 			headers			: 请求头
 			body			: 请求体
-			contextManager	: 上下文管理器
+			context_manager	: 上下文管理器
 			timeout			: 超时时间
 		task:
 			构建所有参数
@@ -147,7 +145,7 @@ class OpenAIClient(OpenAIProtocol):
 		}
 		body	= {
 			"model"			: self.model,
-			"messages"		: contextManager.toList(),
+			"messages"		: context_manager.toList(),
 			**body
 		}
 		
@@ -168,6 +166,9 @@ class OpenAIClient(OpenAIProtocol):
 		
 		await self.asyncLog.log(f"请求完成: {requestCode}", "info")
 		
+		# 防止api返回出错
+		if not isinstance(rawResponse, dict): raise RuntimeError(rawResponse)
+		
 		# 返回码不为200
 		if requestCode != 200:
 			
@@ -182,7 +183,8 @@ class OpenAIClient(OpenAIProtocol):
 		# 获取token用量
 		usage	= rawResponse.get("usage")
 		
-		return Item(
+		# 请求数据
+		data	= Item(
 			model		= rawResponse.get("model"),
 			request_id	= rawResponse.get("id"),
 			content		= message.get("content"),
@@ -192,102 +194,8 @@ class OpenAIClient(OpenAIProtocol):
 				completion	= usage.get("completion_tokens"),
 				total		= usage.get("total_tokens"),
 				cached		= usage.get("cached_tokens")
-			)
-		)
-
-"""==================对OpenAI的高级封装================="""
-
-# 安全的请求
-async def safeRequest(
-	openAIClient		: OpenAIProtocol,
-	contextManager		: ContextManager,
-	exceptionHandler	: "ExceptionHandlerBase"	= None	, # TODO
-	maxRetryCount		: int						= 3		,
-	**kwargs
-) -> Error | Item:
-	
-	"""
-	一个安全的ai请求接口
-	
-	args:
-		openAIClient		: openai客户端 OpenAIProtocol协议
-		exceptionHandler	: 错误处理器 继承ExceptionHandlerBase
-		maxRetryCount		: 最大重试次数 int 默认3
-		retryCount			: 已重试次数 int 默认0
-		**kwargs			: 用于装载请求参数 dict
-	results:
-		Error类型 / str
-	"""
-	
-	# 获取已重试的次数
-	_retryCount = kwargs.get("_retryCount", 0)
-	
-	try:
+			))
 		
-		response = await openAIClient.chatCompletion(
-			contextManager = contextManager,
-			**kwargs
-		)
-	
-	except ResponseCodeError as error:
+		await self.asyncLog.log("返回数据构建成功", "debug")
 		
-		if not exceptionHandler:
-		
-			# 直接返回
-			error = Error(
-				code		= error.code,
-				message		= f"出现错误且未启用处理器",
-				metaData	= error.response
-			)
-			
-			return error
-		
-		handleResult = exceptionHandler(error)
-		# 解析处理结果
-		# 重试？
-		if handleResult == ExceptionHandlerAction.RETRY:
-			
-			# 判断是否超过最大重试次数
-			if _retryCount > maxRetryCount:
-				
-				# 直接返回
-				return Error(
-					code		= error.code,
-					message		= f"超过最大重试次数限制 {maxRetryCount}",
-					metaData	= error.response
-				)
-			
-			# 递归函数 重试
-			return safeRequest(
-				openAIClient		= openAIClient,
-				exceptionHandler	= exceptionHandler,
-				maxRetryCount		= maxRetryCount,
-				**kwargs,
-				_retryCount			= _retryCount + 1 # _retry在下面是因为**kwargs包含了_retry 这样可以防止变量被替换
-			)
-		
-		# 终止？
-		if handleResult == ExceptionHandlerAction.ABORT:
-			
-			# 直接返回
-			return Error(
-				code		= error.code,
-				message		= f"主动终止了请求",
-				metaData	= error.response
-			)
-		
-		# 都不是 一般不会
-		return Error(
-			code 		= error.code,
-			message		= "未知的处理结果",
-			metaData	= error.response
-		)
-	
-	# 其他错误暂时不处理
-	except Exception as error: raise
-	
-	# 没错就返回结果
-	return response
-
-"""========================函数定义====================="""
-
+		return data

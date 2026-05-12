@@ -4,7 +4,7 @@ from typing import List, Dict
 from copy import deepcopy
 
 # 上下文对象+提示词对象
-from aioverse.types import Prompt, Context
+from aioverse.types import Prompt, Context, Content
 
 
 class ContextManager:

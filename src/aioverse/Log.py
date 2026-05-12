@@ -15,6 +15,10 @@ import aiofiles
 import sys
 
 
+# 全局日志实例存储
+_global_logs = {}
+
+
 class BaseLog(LogProtocol):
 	
 	"""
@@ -284,8 +288,14 @@ def get_log(
 	其他全部采用默认值
 	"""
 	
-	# 格式化函数不支持异步
-	formatter = LogFormatter(source)
+	# 日志实例id
+	log_id				= (fileName, source, isAsync)
+	
+	# 判断是否已经创建了相同日志实例
+	if log_id in _global_logs: return _global_logs[log_id]
+	
+	# 格式化函数不支持异步 单独创建
+	formatter			= LogFormatter(source)
 	
 	if isAsync:
 		
@@ -300,5 +310,8 @@ def get_log(
 			writer		= SyncWriter(fileName),
 			formatter	= formatter
 		)
+	
+	# 否则创建
+	_global_logs[log_id] = logObject
 	
 	return logObject

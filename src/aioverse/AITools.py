@@ -43,6 +43,8 @@ class FunctionTools:
 		# 遍历所有参数 获取信息
 		for name, param in paramInformation:
 			
+			if name in ("cls", "self"): continue
+			
 			# 参数类型
 			paramType		= str(param.annotation)
 			# 参数是否必须
@@ -80,10 +82,26 @@ def getFunctionFromObject(
 	返回方法对象
 	"""
 	
-	return inspect.getmembers(
+	# 检测可用的实例/类方法
+	def is_available_function(
+		func: Callable[Any, Any]
+	) -> bool:
+		
+		return (
+			inspect.isfunction(func)
+			or inspect.ismethod(func)
+		)
+	
+	members = inspect.getmembers(
 		instance,
-		predicate=inspect.isfunction
+		predicate=is_available_function
 	)
+	
+	return [
+		(name, method)
+		for name, method in members 
+		if not name.startswith('_')
+	]
 
 # 工具执行器
 async def toolExecuter(
