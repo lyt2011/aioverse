@@ -178,6 +178,11 @@ class ContextManager:
 			if isinstance(context, return_type)
 		]
 	
+	# 获取self._contexts
+	def get_list(self) -> List[Context]:
+		
+		return self._contexts
+	
 	def isOut(
 		self,
 		max_tokens: int
