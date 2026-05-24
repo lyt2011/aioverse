@@ -32,7 +32,7 @@ class KeyManager:
 		return len(self._keysList)
 	
 	# 获取下一个密钥
-	def getNextKey(self) -> str:
+	def get_next_key(self) -> str:
 		
 		"""
 		获取下一个Key
@@ -59,7 +59,7 @@ class KeyManager:
 		return nextKey
 	
 	# 获取当前密钥
-	def getCurrentKey(self) -> str | None:
+	def get_current_key(self) -> str | None:
 		
 		"""
 		获取当前正在使用的key
@@ -73,19 +73,19 @@ class KeyManager:
 		return currentKey
 	
 	# 获取可用key
-	def getAvailableKey(self) -> str | None:
+	def get_available_key(self) -> str | None:
 		
 		key = (
 			# 获取当前key 赋值给key
-			self.getCurrentKey()
+			self.get_current_key()
 			# 如果获取的是空 则获取下一个key
-			or self.getNextKey()
+			or self.get_next_key()
 		)
 		
 		return key
 	
 	# 添加密钥
-	def addKey(
+	def add_key(
 		self,
 		key: str
 	) -> None:
@@ -97,7 +97,7 @@ class KeyManager:
 		return None
 	
 	# 删除特定密钥
-	def removeKey(
+	def remove_key(
 		self,
 		key: str
 	) -> None:

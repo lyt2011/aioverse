@@ -34,19 +34,19 @@ class ContextManager:
 	# str()
 	def __repr__(self) -> str:
 		
-		chatHistory = [
+		chat_history = [
 			f"{context.role}: {context.content}"
 			for context in self._contexts
 		]
 		
-		return "\n".join(chatHistory)
+		return "\n".join(chat_history)
 	
 	@property
 	def token(self) -> int:
 		
 		"""
 		如果自定义token小于等于0
-		返回估算的token(全部字符*1.3)
+		返回估算的token(全部字符*1.21)
 		
 		否则直接返回自定义的token数
 		"""
@@ -56,11 +56,11 @@ class ContextManager:
 			return sum([
 				len(context)
 				for context in self._contexts
-			]) * 1.3
+			]) * 1.21
 		
 		return self._token
 	
-	def setToken(
+	def set_token(
 		self,
 		token: int
 	) -> None:
@@ -79,7 +79,7 @@ class ContextManager:
 		"""
 	
 		# 保留提示词且有提示词
-		if keep_prompt and self.hasPrompt():
+		if keep_prompt and self.has_prompt():
 			
 			# 遍历提示词之后的元素 清理
 			for context in self._contexts[1:]: self._contexts.remove(context)
@@ -92,17 +92,21 @@ class ContextManager:
 		return None
 	
 	# 是否含有提示词
-	def hasPrompt(self) -> bool:
+	def has_prompt(self) -> bool:
 		
 		"""是否添加了提示词 返回bool"""
 		
-		if not self._contexts: return False
+		# 过滤边界情况
+		if not (
+			self._contexts
+			or isinstance(self._contexts, Context)
+		): return False
 		
-		# 判断是否已有提示词
+		# 取第一个 (OpenAI格式)
 		return self._contexts[0].role == "system"
 	
 	# 强行修改提示词
-	def setPrompt(
+	def set_prompt(
 		self,
 		prompt: Prompt | Context
 	) -> None:
@@ -114,7 +118,7 @@ class ContextManager:
 		"""
 			
 		# 判断是否已含有提示词
-		if self.hasPrompt():
+		if self.has_prompt():
 			
 			# 直接替换
 			self._contexts[0] = prompt
@@ -125,19 +129,19 @@ class ContextManager:
 		return None
 	
 	# 获取提示词
-	def getPrompt(self) -> Prompt | None:
+	def get_prompt(self) -> Prompt | None:
 		
 		return self._contexts[0] if self.hasPrompt() else None
 	
 	# 删除最后一个上下文
-	def deleteLastContext(self) -> None:
+	def delete_last_context(self) -> None:
 		
 		self._contexts.pop()
 		
 		return None
 
 	# 添加单个上下文
-	def addContext(
+	def add_context(
 		self,
 		context: Context
 	) -> None:
@@ -145,7 +149,7 @@ class ContextManager:
 		"""向self._contexts添加单个上下文"""
 		
 		if (
-			self.hasPrompt()
+			self.has_prompt()
 			and context.role == "system"
 		):
 			
@@ -160,7 +164,7 @@ class ContextManager:
 		return None
 	
 	# 获取上下文副本
-	def toList(
+	def to_list(
 		self,
 		return_prompt: bool = True
 	) -> List[Dict[str, str]]:
@@ -173,7 +177,7 @@ class ContextManager:
 		
 		# 转换上下文
 		return [
-			context.toDict()
+			context.to_dict()
 			for context in self._contexts
 			if isinstance(context, return_type)
 		]
@@ -183,7 +187,7 @@ class ContextManager:
 		
 		return self._contexts
 	
-	def isOut(
+	def is_out_of(
 		self,
 		max_tokens: int
 	) -> bool:

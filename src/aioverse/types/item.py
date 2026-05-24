@@ -1,6 +1,7 @@
+# 类型注解
 from typing import Optional, Any, Dict
 
-
+# json实现
 import orjson
 
 
@@ -48,10 +49,10 @@ class Item:
 		
 		return self._mapping.get(name, self._default)
 	
-	def toDict(self) -> Dict[str, Any]:
+	def to_dict(self) -> Dict[str, Any]:
 		
 		return self._mapping.copy()
 	
-	def toString(self) -> str:
+	def to_string(self) -> str:
 		
-		return orjson.dumps(self.toDict()).decode("utf-8")
+		return orjson.dumps(self._mapping).decode("utf-8")

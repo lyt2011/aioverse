@@ -1,12 +1,12 @@
 from .context import Context
-from .content_array import ContentArray
 
 
+# 注意role一般不支持多模态 (就算API允许注意力也不会放在多模态上)
 class Prompt(Context):
 	
 	def __init__(
 		self,
-		content: ContentArray | str
+		content: str
 	):
 		
 		super().__init__(

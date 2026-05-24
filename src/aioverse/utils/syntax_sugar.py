@@ -1,5 +1,6 @@
 from aioverse.managers import ContextManager
-from aioverse.types import Context, Content, ContentArray
+from aioverse.types import Context, Content
+from aioverse.models import ContentArray
 
 from typing import List, Dict, Any
 
@@ -14,16 +15,20 @@ def build_contexts(data: List[Dict[str, Any]]) -> ContextManager:
 	# 批量构建上下文正文
 	def build_contents(contents: List[Dict[str, Any]]) -> ContentArray:
 		
-		return ContentArray([
+		contents = [
 			Content.from_dict(content)
 			for content in contents
-		])
+		]
+		
+		return ContentArray(contents=contents)
 	
 	# 构建完成的Context实例
 	contexts = []
 	
 	# 遍历data 获取每一个Context所需的数据
 	for context in data:
+	
+		print(context)
 		
 		# 取出便于检查类型
 		content = context["content"]

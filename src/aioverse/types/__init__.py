@@ -1,7 +1,5 @@
 # 正文
 from .content import Content
-# 正文数组
-from .content_array import ContentArray
 # 上下文
 from .context import Context
 # 提示词
@@ -15,7 +13,7 @@ from .item import Item
 
 
 __all__ = [
-	"Content", "ContentArray", "Context", "Prompt",
+	"Content", "Context", "Prompt",
 	"Error",
 	"Item"
 ]

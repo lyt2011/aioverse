@@ -9,7 +9,8 @@ dependencies = [
     "aiohttp>=3.11",
     "aiofiles==25.1.0",
     "tavily==1.1.0",
-    "orjson==3.11.9"
+    "orjson==3.11.9",
+    "pydantic==2.13.4"
 ]
 
 [build-system]

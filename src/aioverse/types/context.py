@@ -1,6 +1,6 @@
 from typing import Dict, Any, Optional
 
-from .content_array import ContentArray
+from aioverse.models import ContentArray
 
 
 class Context:
@@ -29,7 +29,7 @@ class Context:
 			else self.token
 		)
 	
-	def setToken(
+	def set_token(
 		self,
 		count: int
 	) -> None:
@@ -38,29 +38,39 @@ class Context:
 		
 		return None
 	
-	def toDict(self) -> Dict[str, Any]:
+	def to_dict(self) -> Dict[str, Any]:
 		
-		"""直接调用content的toList方法即可"""
-		
+		# 优先多模态
 		if isinstance(self.content, ContentArray):
 			
 			# 字符串类型直接返回
 			return {
 				"role"		: self.role,
-				"content"	: self.content.toList()
+				"content"	: self.content.to_list()
 			}
 		
-		return {
-			"role"		: self.role,
-			"content"	: str(self.content)
-		}
+		# 增加通用to_string处理方式
+		elif hasattr(self.content, "to_string"):
+			
+			return {
+				"role"		: self.role,
+				"content"	: self.content.to_string()
+			}
+		
+		# str兜底
+		else:
+		
+			return {
+				"role"		: self.role,
+				"content"	: str(self.content)
+			}
 	
 	# 获取完整实例数据 (用于上下文持久化)
 	def to_raw_dict(self) -> Dict[str, Any]:
 		
 		return {
 			"token": self.token,
-			**self.toDict()
+			**self.to_dict()
 		}
 	
 	@classmethod

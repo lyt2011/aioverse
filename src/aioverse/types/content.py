@@ -23,7 +23,7 @@ class Content:
 		
 		return len(str(self.data))
 	
-	def toDict(self) -> Dict[str, Any]:
+	def to_dict(self) -> Dict[str, Any]:
 		
 		return {
 			"type"		: self._type,
