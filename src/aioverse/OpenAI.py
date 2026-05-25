@@ -6,12 +6,13 @@ from aioverse.Log import AsyncLog, AsyncWriter, LogFormatter
 from aioverse.errors import *
 # 导入协议
 from aioverse.protocols import LogProtocol
-# 导入数据体
-from aioverse.types import Error, Item
 # 异步占位函数
 from aioverse.utils.holder import NullObject
 # 上下文 密钥管理器
 from aioverse.managers import ContextManager, KeyManager
+# 数据模型
+from aioverse.models import ModelConfig
+
 # 类型注解
 from typing import Dict, List, Tuple, Any, Optional
 
@@ -20,24 +21,13 @@ class OpenAIClient:
 	
 	def __init__(
 		self,
-		model		: str,
-		api_url		: str,
+		model_config: ModelConfig,
 		session		: aiohttp.ClientSession,
-		async_log	: Optional[LogProtocol]	= None,
-		key_manager	: Optional[KeyManager]	= None
+		async_log	: Optional[LogProtocol]	= None
 	):
 		
-		"""
-		args:
-			model			: 模型名
-			api_url			: api请求网址
-			keyManager		: 密钥管理器
-			context_manager	: 上下文管理器
-		"""
-		
-		self.model			= model
-		self.api_url		= api_url
-		self.key_manager	= key_manager
+		self.model_config	= model_config
+		self.key_manager	= KeyManager(model_config.model_keys)
 		
 		# 日志实例注入
 		self.async_log	= async_log or NullObject()
@@ -54,7 +44,7 @@ class OpenAIClient:
 		设置密钥管理器
 		"""
 		
-		self.key_manager = keyManager
+		self.key_manager = key_manager
 	
 		return None
 	
@@ -65,7 +55,7 @@ class OpenAIClient:
 		params			: Dict[str, Any]	= {},
 		body			: Dict[str, Any]	= {},
 		timeout			: int				= 90,
-	) -> Item:
+	) -> Dict[str, Any]:
 		
 		# 构建请求参数 优先保证用户输入有效性
 		params	= {**params}
@@ -75,7 +65,7 @@ class OpenAIClient:
 			**headers
 		}
 		body	= {
-			"model"			: self.model,
+			"model"			: self.model_config.model_name,
 			"messages"		: context_manager.to_list(),
 			**body
 		}
@@ -84,10 +74,10 @@ class OpenAIClient:
 		
 		# 开始请求
 		async with self.session.post(
-			url		= self.api_url	,
-			headers	= headers		,
-			params	= params		,
-			json	= body			,
+			url		= self.model_config.api_url	,
+			headers	= headers					,
+			params	= params					,
+			json	= body						,
 			timeout = timeout
 		) as request:
 			
@@ -107,24 +97,4 @@ class OpenAIClient:
 				response	= response_json
 			)
 		
-		# 获取具体信息
-		message = response_json.get("choices", [{}])[0].get("message", {})
-		# 获取token用量
-		usage	= response_json.get("usage")
-		
-		# 请求数据
-		data	= Item(
-			model		= response_json.get("model"),
-			request_id	= response_json.get("id"),
-			content		= message.get("content"),
-			reasoning	= message.get("reasoning_content"),
-			token		= Item(
-				prompt		= usage.get("prompt_tokens"),
-				completion	= usage.get("completion_tokens"),
-				total		= usage.get("total_tokens"),
-				cached		= usage.get("cached_tokens")
-			))
-		
-		await self.async_log.log("返回数据构建成功", "debug")
-		
-		return data
+		return response_json

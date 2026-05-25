@@ -1,6 +1,6 @@
 # 这俩函数就是啥也不干的
-async def asyncNull(*args, **kwargs): pass
-def syncNull(*args, **kwargs): pass
+async def async_null(*args, **kwargs): pass
+def sync_null(*args, **kwargs): pass
 
 
 class NullObject:

@@ -4,7 +4,7 @@ from typing import List, Dict
 from copy import deepcopy
 
 # 上下文对象+提示词对象
-from aioverse.types import Prompt, Context, Content
+from aioverse.models.contexts import Prompt, Context
 
 
 class ContextManager:
@@ -75,7 +75,7 @@ class ContextManager:
 		
 		"""
 		Q: 为什么保留提示词时不使用self.trim()清理
-		A: 因为用self.trim()每次都得self.hasPrompt()，开销大，而这样我只需要写一次
+		A: 因为用self.trim()每次都得self.has_prompt()，开销大，而这样我只需要写一次
 		"""
 	
 		# 保留提示词且有提示词
@@ -131,7 +131,7 @@ class ContextManager:
 	# 获取提示词
 	def get_prompt(self) -> Prompt | None:
 		
-		return self._contexts[0] if self.hasPrompt() else None
+		return self._contexts[0] if self.has_prompt() else None
 	
 	# 删除最后一个上下文
 	def delete_last_context(self) -> None:
@@ -203,7 +203,7 @@ class ContextManager:
 	def trim(self) -> None:
 		
 		# 根据实际情况删除上下文
-		if self.hasPrompt():
+		if self.has_prompt():
 				
 			# 删第二个
 			self._contexts.pop(1)

@@ -1,6 +1,6 @@
 from aioverse.managers import ContextManager
-from aioverse.types import Context, Content
-from aioverse.models import ContentArray
+from aioverse.models.contexts import Context
+from aioverse.models.contents import Segment
 
 from typing import List, Dict, Any
 
@@ -13,14 +13,14 @@ def build_contexts(data: List[Dict[str, Any]]) -> ContextManager:
 	"""
 	
 	# 批量构建上下文正文
-	def build_contents(contents: List[Dict[str, Any]]) -> ContentArray:
+	def build_contents(contents: List[Dict[str, Any]]) -> List[Context]:
 		
 		contents = [
-			Content.from_dict(content)
+			Segment(**content)
 			for content in contents
 		]
 		
-		return ContentArray(contents=contents)
+		return contents
 	
 	# 构建完成的Context实例
 	contexts = []
@@ -28,8 +28,6 @@ def build_contexts(data: List[Dict[str, Any]]) -> ContextManager:
 	# 遍历data 获取每一个Context所需的数据
 	for context in data:
 	
-		print(context)
-		
 		# 取出便于检查类型
 		content = context["content"]
 		
@@ -49,7 +47,7 @@ def build_contexts(data: List[Dict[str, Any]]) -> ContextManager:
 			raise TypeError(f"content的类型不能为{type(content)}")
 		
 		# 转为Context实例
-		context_instance	= Context.from_dict(context)
+		context_instance = Context(**context)
 		
 		# 转为Context并添加进入contexts
 		contexts.append(context_instance)
