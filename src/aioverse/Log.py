@@ -2,11 +2,13 @@
 日志系统
 """
 # 时间获取
-from datetime import datetime
+from datetime	import datetime
 # 类型注解
-from typing import Callable, Awaitable, Tuple, Optional
+from typing		import Callable, Awaitable, Tuple, Optional
+
 # 导入接口
 from aioverse.protocols import LogProtocol, LogWriteProtocol, LogFormatProtocol
+
 # 异步实现
 import asyncio
 # 异步文件实现
@@ -19,13 +21,7 @@ import sys
 _global_logs = {}
 
 
-class BaseLog(LogProtocol):
-	
-	"""
-	注意，不提供记录
-	继承Log协议接口
-	作为Log基类
-	"""
+class BaseLog:
 	
 	def __init__(
 		self,
@@ -36,37 +32,19 @@ class BaseLog(LogProtocol):
 		self.formatter = formatter
 		self.writer    = writer
 
-class BaseWriter(LogWriteProtocol):
+class BaseWriter:
 	
-	"""
-	不提供写入
-	继承Writer协议接口
-	作为任意Writer的基类
-	"""
 	def __init__(
 		self,
-		logFileName : str = "log.log",
-		bufSize     : int = 10
+		file_name	: str,
+		buffer_size	: int = 10
 	):
 		
-		"""
-		args:
-			logFileName 日志名 str
-			bufSize 缓冲区大小，越小越实时，越大性能越好 int
-		"""
-		
-		self.fileName   = logFileName
+		self.file_name	= file_name
 		
 		# 缓冲蛆
-		self._logBuffer = []
-		self.bufSize    = bufSize
-	
-	# def write(self, *args, **kwargs): pass
-	"""
-	这里疏忽了，再次定义一个writer函数会把协议的write给重写
-	导致出现了绕过协议类型检查的可能
-	"""
-	
+		self._log_buffer	= []
+		self.buffer_size	= buffer_size
 
 class LogFormatter(LogFormatProtocol):
 	
@@ -74,7 +52,7 @@ class LogFormatter(LogFormatProtocol):
 	
 	def __init__(
 		self,
-		source	: str = ""
+		source: str
 	):
 		
 		self.source = source
@@ -87,21 +65,6 @@ class LogFormatter(LogFormatProtocol):
 	) -> Tuple[str, str]:
 		
 		"只负责生成一个可阅读的字符串并返回"
-			
-		if (
-			not isinstance(text,  str) or
-			not isinstance(level, str) or
-			not isinstance(time,  str)
-		): raise TypeError(
-			f"错误的数据类型: "
-			f"text: {type(text)} "
-			f"level: {type(level)} "
-			f"time: {type(time)} "
-			"内有一个不为str"
-		)
-		
-		# 如果没有传入内容 直接返回
-		if not text: return "", ""
 		
 		# 格式化level 便于处理
 		level = level.lower()
@@ -120,14 +83,12 @@ class LogFormatter(LogFormatProtocol):
 			
 			case _				: color = "\033[0m" # 别的就默认白色
 		
-		noColorText = f"[{time} {level} {self.source}] > {text}\n" # 供给日志写入
-		colorText   = f"{color}{noColorText}\033[0m" # 恢复后续正常颜色
+		no_color_text	= f"[{time} {level} {self.source}] > {text}\n" # 供给日志写入
+		color_text		= f"{color}{no_color_text}\033[0m" # 恢复后续正常颜色
 		
-		return noColorText, colorText
-		
+		return no_color_text, color_text
 
-
-class AsyncWriter(BaseWriter):
+class AsyncWriter(BaseWriter, LogWriteProtocol):
 	
 	"""负责异步写入"""
 	
@@ -137,40 +98,28 @@ class AsyncWriter(BaseWriter):
 		flush	: bool = False
 	) -> None:
 		
-		"""
-		每次调用write都是加入缓冲区
-		当缓冲区消息条数大于等于bufSize时
-		清空缓冲区并用""连接，一起写入
-		毕竟一直open，手机迟早报废😱😱😱
-		"""
 		if not text: return None
 		
-		self._logBuffer.append(text)
+		self._log_buffer.append(text)
 		
 		if (
-			len(self._logBuffer) >= self.bufSize
+			len(self._log_buffer) >= self.buffer_size
 			or flush is True
 		):
 			
 			# 连接缓冲区内所有信息
-			textFormatted = "".join(self._logBuffer)
+			text_formatted = "".join(self._log_buffer)
 		
-			async with aiofiles.open(self.fileName, "a") as file:
+			async with aiofiles.open(self.file_name, "a") as file:
 				
-				await file.write(f"{textFormatted}")
+				await file.write(f"{text_formatted}")
 			
 			# 清空缓冲区
-			self._logBuffer.clear()
+			self._log_buffer.clear()
 			
 		return None
 
-class SyncWriter(BaseWriter):
-	
-	"""
-	负责同步写入
-	66，之前为什么不继承AsyncWriter
-	还得多写一次init😱😱😱
-	"""
+class SyncWriter(BaseWriter, LogWriteProtocol):
 	
 	def write(
 		self,
@@ -186,34 +135,29 @@ class SyncWriter(BaseWriter):
 		
 		if not text: return None
 		
-		self._logBuffer.append(text)
+		self._log_buffer.append(text)
 		
 		if (
-			len(self._logBuffer) >= self.bufSize
+			len(self._log_buffer) >= self.buffer_size
 			or flush is True
 		):
 			
-			textFormatted = "".join(self._logBuffer)
+			text_formatted = "".join(self._log_buffer)
 		
-			with open(self.fileName, "a") as file:
+			with open(self.file_name, "a") as file:
 				
-				file.write(f"{textFormatted}")
+				file.write(f"{text_formatted}")
 			
-			self._logBuffer.clear()
+			self._log_buffer.clear()
 		
 		return None
 
 
-class AsyncLog(BaseLog):
+class AsyncLog(BaseLog, LogProtocol):
 	
 	"""负责异步处理日志"""
 		
-	async def log(
-		self,
-		text	: str,
-		level	: str = "Info",
-		flush	: bool = False
-	) -> None:
+	async def log(self, text: str, level: str = "Info", flush: bool = False):
 		
 		"""
 		对LogFormatter, AsyncWriter
@@ -221,38 +165,24 @@ class AsyncLog(BaseLog):
 		"""
 		
 		# 生成日志
-		logText, logTextColor = self.formatter.format(
+		log_text, color_log_text = self.formatter.format(
 			time  = str(datetime.now()),
 			text  = text,
 			level = level
 		)
 		
 		# 显示日志
-		sys.__stdout__.write(logTextColor) # 显示有颜色的
+		sys.__stdout__.write(color_log_text) # 显示有颜色的
 		sys.__stdout__.flush()
 		
 		# 写入日志
-		await self.writer.write(
-			text	= f"{logText}",
-			flush	= flush
-		)
+		await self.writer.write(text=log_text, flush=flush)
 		
 		return None
 
-class SyncLog(BaseLog):
+class SyncLog(BaseLog, LogProtocol):
 	
-	"""
-	哎哟，之前怎么没想到继承AsyncLog！现在使用BaseLog作为基类！
-	又又多写一次init
-	😱
-	"""
-	
-	def log(
-		self,
-		text	: str,
-		level	: str = "Info",
-		flush	: bool = False
-	) -> None:
+	def log(self, text: str, level: str = "Info", flush: bool = False):
 		
 		"""
 		AsyncLog.log的同步实现
@@ -260,27 +190,24 @@ class SyncLog(BaseLog):
 		"""
 		
 		# 格式化日志
-		logText, logTextColor = self.formatter.format(
+		log_text, color_log_text = self.formatter.format(
 			time  = str(datetime.now()),
 			text  = text,
 			level = level
 		)
 		
-		sys.__stdout__.write(logTextColor) # 显示有颜色的
+		sys.__stdout__.write(color_log_text) # 显示有颜色的
 		sys.__stdout__.flush()
 		
-		self.writer.write(
-			text	= f"{logText}",
-			flush	= flush
-		)
+		self.writer.write(text=log_text, flush=flush)
 		
 		return None
 		
 # 便捷的日志获取
 def get_log(
-	fileName: str,
-	source	: str,
-	isAsync	: bool = False
+	file_name	: str,
+	source		: str,
+	is_async	: bool = False
 ) -> BaseLog:
 	
 	"""
@@ -288,30 +215,24 @@ def get_log(
 	其他全部采用默认值
 	"""
 	
-	# 日志实例id
-	log_id				= (fileName, source, isAsync)
+	# 日志实例标识符
+	log_sign	= (file_name, source, is_async)
 	
 	# 判断是否已经创建了相同日志实例
-	if log_id in _global_logs: return _global_logs[log_id]
+	if log_sign in _global_logs: return _global_logs[log_sign]
 	
 	# 格式化函数不支持异步 单独创建
-	formatter			= LogFormatter(source)
-	
-	if isAsync:
-		
-		logObject	= AsyncLog(
-			writer		= AsyncWriter(fileName),
-			formatter	= formatter
-		)
-	
-	else:
-		
-		logObject	= SyncLog(
-			writer		= SyncWriter(fileName),
-			formatter	= formatter
-		)
+	formatter	= LogFormatter(source)
+
+	log_ob	= AsyncLog(
+		writer		= AsyncWriter(file_name),
+		formatter	= formatter
+	) if is_async else SyncLog(
+		writer		= SyncWriter(file_name),
+		formatter	= formatter
+	)
 	
 	# 否则创建
-	_global_logs[log_id] = logObject
+	_global_logs[log_sign] = log_ob
 	
-	return logObject
+	return log_ob

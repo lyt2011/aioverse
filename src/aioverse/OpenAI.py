@@ -1,20 +1,15 @@
-# 异步网络
-import aiohttp
-# 从包导入日志
-from aioverse.Log import AsyncLog, AsyncWriter, LogFormatter
-# 导入错误
-from aioverse.errors import *
-# 导入协议
-from aioverse.protocols import LogProtocol
-# 异步占位函数
-from aioverse.utils.holder import NullObject
-# 上下文 密钥管理器
-from aioverse.managers import ContextManager, KeyManager
-# 数据模型
-from aioverse.models import ModelConfig
+from aioverse.Log				import AsyncLog, AsyncWriter, LogFormatter
+from aioverse.errors			import *
+from aioverse.protocols			import LogProtocol
+from aioverse.utils.holder		import NullObject
+from aioverse.managers			import ContextManager
+from aioverse.base_models		import ModelConfig, AssistantKey
+from aioverse.models.response	import Response
 
 # 类型注解
 from typing import Dict, List, Tuple, Any, Optional
+
+import aiohttp
 
 
 class OpenAIClient:
@@ -27,40 +22,24 @@ class OpenAIClient:
 	):
 		
 		self.model_config	= model_config
-		self.key_manager	= KeyManager(model_config.model_keys)
+		self.session		= session
 		
-		# 日志实例注入
-		self.async_log	= async_log or NullObject()
-		
-		# 会话 尝试通过session获取
-		self.session	= session
-		
-	def set_key_manager(
-		self,
-		key_manager: KeyManager
-	) -> None:
-		
-		"""
-		设置密钥管理器
-		"""
-		
-		self.key_manager = key_manager
-	
-		return None
+		self.async_log = async_log or NullObject()
 	
 	async def call(
 		self,
 		context_manager	: ContextManager		,
+		assistant_key	: AssistantKey			,
 		headers			: Dict[str, Any]	= {},
 		params			: Dict[str, Any]	= {},
 		body			: Dict[str, Any]	= {},
 		timeout			: int				= 90,
-	) -> Dict[str, Any]:
+	) -> Response:
 		
 		# 构建请求参数 优先保证用户输入有效性
 		params	= {**params}
 		headers	= {
-			"Authorization"	: self.key_manager.get_available_key(),
+			"Authorization"	: assistant_key.key,
 			"Content-Type"	: "application/json",
 			**headers
 		}
@@ -97,4 +76,4 @@ class OpenAIClient:
 				response	= response_json
 			)
 		
-		return response_json
+		return Response.model_validate(response_json)
