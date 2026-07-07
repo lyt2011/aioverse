@@ -9,11 +9,7 @@ class LogWriteProtocol(ABC):
 	
 	# 必须实现的write
 	@abstractmethod
-	def write(
-		self,
-		text	: str,
-		flush	: bool = False
-	) -> None:
+	def write(self, text: str, flush: bool = False) -> None:
 		
 		"""
 		写入日志
@@ -21,4 +17,4 @@ class LogWriteProtocol(ABC):
 		flush为True时强行写入缓冲区内容
 		"""
 		
-		pass
+		...

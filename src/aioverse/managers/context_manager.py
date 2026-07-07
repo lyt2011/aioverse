@@ -1,84 +1,58 @@
 from typing import List, Dict, Optional, Any
 
-from aioverse.base_models.contexts				import Prompt, Context, ToolOutput, ToolCallingContext
-from aioverse.models.blocks						import ToolCallingBlock, ContextsBlock
-from aioverse.models							import _ContextsStatus
-from aioverse.protocols.contexts_block_protocol	import ContextsBlockProtocol
+from aioverse.models	import (
+	Prompt,
+	Context,
+	ToolOutput,
+	ToolCallingContext,
+	ToolCallingBlock,
+	ContextsBlock,
+	_ContextsStatus,
+	SUPPORT_CONTEXT_TYPE
+)
+from ..protocols	import ContextsBlockProtocol
 
 
 class ContextManager:
 	
 	__slots__ = ["contexts_status"]
 	
-	def __init__(
-		self,
-		contexts_status: _ContextsStatus | None = None
-	):
+	def __init__(self, contexts_status: Optional[_ContextsStatus] = None):
 		
 		self.contexts_status = contexts_status or _ContextsStatus()
 	
 	@property
 	def token(self) -> int:
-		
 		return self.contexts_status.token
 	
 	def set_token(self, token: int):
-	
-		self.contexts_status.token = token
-		
-		return None
-	
+		self.contexts_status.set_token(token)
 	def set_prompt(self, prompt: Context):
+		self.contexts_status.set_prompt(prompt)
 		
-		self.contexts_status.prompt = prompt
-		
-		return None
-	
 	def has_prompt(self) -> bool:
-		
 		return bool(self.contexts_status.prompt)
 	
 	def get_prompt(self) -> Context | None:
-		
 		return self.contexts_status.prompt
 	
-	def add_context(self, context: Context | ContextsBlockProtocol):
-		
-		self.contexts_status.contexts.append(context)
-		
-		return None
+	def add_context(self, context: SUPPORT_CONTEXT_TYPE):
+		self.contexts_status.add_context(context)
 	
+	def flatten_contexts(self) -> List[Context]:
+		return self.contexts_status.flatten_contexts()
 	def to_list(self) -> List[Dict[str, Any]]:
-	
-		contexts_list = []
-		
-		for context in self.contexts_status.contexts:
-			
-			if isinstance(context, ContextsBlockProtocol):
-				
-				contexts_list.extend(ctx.model_dump() for ctx in context)
-			
-			else:
-				
-				contexts_list.append(context.model_dump())
-		
-		if self.contexts_status.prompt is not None:
-			
-			contexts_list.insert(0, self.contexts_status.prompt.model_dump())
-		
-		return contexts_list
+		return [ctx.model_dump() for ctx in self.flatten_contexts()]
 	
 	def trim(self):
-	
 		self.contexts_status.contexts.pop(0)
-		
-		return None
 	
 	def clear(self, keep_prompt: bool = True):
 		
 		self.contexts_status.contexts.clear()
 		
-		if not keep_prompt: self.contexts_status.prompt = None
+		if keep_prompt is False:
+			self.contexts_status.unset_prompt()
 		
 		return None
 	

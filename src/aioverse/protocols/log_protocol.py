@@ -15,4 +15,4 @@ class LogProtocol(ABC):
 		操作日志
 		"""
 		
-		pass
+		...

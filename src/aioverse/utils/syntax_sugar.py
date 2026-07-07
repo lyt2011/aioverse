@@ -1,7 +1,13 @@
-from aioverse.managers					import ContextManager
-from aioverse.base_models.contexts		import Context
-from aioverse.base_models.segments		import Segment
-from aioverse.base_models.tool_schema	import Tool, Function, Parameters , Argument, _Empty
+from aioverse.managers	import ContextManager
+from aioverse.models	import (
+	Context,
+	Segment,
+	Tool,
+	Function,
+	Parameters,
+	Argument,
+	_Empty
+)
 
 from typing import List, Dict, Any, Tuple
 

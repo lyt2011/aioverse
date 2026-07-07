@@ -1,8 +1,12 @@
+from __future__ import annotations
+
 from abc		import ABC, abstractmethod
-from typing		import Optional, List, Iterator
+from typing		import Optional, List, Iterator, TYPE_CHECKING
 from pydantic	import BaseModel
 
-from aioverse.base_models.contexts import Context
+if TYPE_CHECKING:
+
+	from aioverse.base_models.contexts import Context
 
 
 class ContextsBlockProtocol(ABC, BaseModel):

@@ -1,7 +1,7 @@
-# aioverse
+# aioverse 🌌
 
 [![Python Version](https://img.shields.io/badge/python-%3E%3D3.11-blue)](https://www.python.org/)
-[![Version](https://img.shields.io/badge/version-0.4.1-green)]()
+[![Version](https://img.shields.io/badge/version-0.4.2-green)]()
 
 基于 `aiohttp` 构建的轻量异步 OpenAI API 请求库。内置**上下文管理**、**工具调用 (Function Calling)**、**多密钥轮询**与**多模态内容**支持。所有数据模型基于 `Pydantic v2`，开箱即用。
 
@@ -13,7 +13,7 @@
 
 - **纯异步** — 基于 `aiohttp` + `asyncio`，高并发无压力
 - **工具调用** — 原生支持 Function Calling，工具 Schema 构建语法糖
-- **上下文管理** — 对话历史组织、System Prompt 管理、Token 追踪与裁剪
+- **上下文管理** — 对话历史组织、System Prompt 管理、Token 追踪与裁剪，支持块式上下文（`ToolCallingBlock` / `ContextsBlock`）
 - **密钥轮询** — `KeyManager` 多 Key 自动轮询，避免单点限流
 - **多模态** — 内置 `Segment` 体系：文本、图片 URL、音频输入
 - **Pydantic 全栈** — 请求参数、上下文、Schema、响应体全部带类型校验
@@ -26,7 +26,7 @@
 ## 📦 安装
 
 ```bash
-pip install aioverse
+pip install /path/to/aioverse
 ```
 
 ### 依赖
@@ -35,9 +35,9 @@ pip install aioverse
 |------|------|
 | Python | >= 3.11 |
 | aiohttp | >= 3.11 |
-| aiofiles | 25.1.0 |
-| orjson | 3.11.9 |
-| pydantic | 2.13.4 |
+| aiofiles | == 25.1.0 |
+| orjson | == 3.11.9 |
+| pydantic | == 2.13.4 |
 
 ---
 
@@ -48,9 +48,9 @@ pip install aioverse
 ```python
 import aiohttp
 import asyncio
-from aioverse import OpenAI
-from aioverse.base_models import ModelConfig
-from aioverse.base_models.contexts import Prompt, Context
+from aioverse.OpenAI import OpenAIClient
+from aioverse.models import ModelConfig
+from aioverse.models.contexts import Prompt, Context
 from aioverse.managers import ContextManager
 
 async def main():
@@ -61,7 +61,7 @@ async def main():
     )
 
     async with aiohttp.ClientSession() as session:
-        client = OpenAI.OpenAIClient(config, session)
+        client = OpenAIClient(config, session)
 
         ctx = ContextManager()
         ctx.set_prompt(Prompt(content="你是一个乐于助人的助手。"))
@@ -81,7 +81,6 @@ config = ModelConfig(
     api_url="https://api.openai.com/v1/chat/completions",
     model_keys=["sk-key-1", "sk-key-2", "sk-key-3"],
 )
-# KeyManager 自动管理轮询，失败自动切下一个
 ```
 
 ### 工具调用 (Function Calling)
@@ -100,25 +99,17 @@ weather_tool = build_tool_schema(
 )
 
 # 发送请求（注入工具）
-response = await client.call(
-    ctx,
-    body={"tools": [weather_tool.model_dump()]}
-)
+response = await client.call(ctx, body={"tools": [weather_tool.model_dump()]})
 
 # 处理工具调用
 if response.choices[0].finish_reason == "tool_calls":
     ctx.add_context(response.choices[0].message)
 
     for call in response.choices[0].message.tool_calls:
-        import json, asyncio
+        import json
         args = json.loads(call.function.arguments)
         result = await get_weather(**args)
-
-        ctx.add_context(type("ToolOutput", (), {
-            "role": "tool",
-            "tool_call_id": call.id,
-            "content": result
-        })())
+        ctx.add_context(ToolOutput(content=result, tool_call_id=call.id))
 
     # 再次请求获取总结
     final = await client.call(ctx)
@@ -128,12 +119,12 @@ if response.choices[0].finish_reason == "tool_calls":
 ### 多模态内容
 
 ```python
-from aioverse.base_models.segments import Text, ImageUrl
+from aioverse.models.segments import Text, ImageUrl
 
 # 文本 + 图片混合消息
 context = Context(role="user", content=[
-    Text(data="这张图里有什么？"),
-    ImageUrl(data="https://example.com/image.jpg"),
+    Text(text="这张图里有什么？"),
+    ImageUrl(url="https://example.com/image.jpg"),
 ])
 ```
 
@@ -149,12 +140,13 @@ class OpenAIClient:
         self,
         model_config: ModelConfig,
         session: aiohttp.ClientSession,
-        async_log: Optional[LogProtocol] = None
+        async_log: Optional[LogProtocol] = None,
     ): ...
 
     async def call(
         self,
         context_manager: ContextManager,
+        assistant_key: AssistantKey,
         headers: Dict[str, Any] = {},
         params: Dict[str, Any] = {},
         body: Dict[str, Any] = {},
@@ -163,20 +155,21 @@ class OpenAIClient:
 ```
 
 - `context_manager` — 对话上下文，通过 `to_list()` 导出为 messages 格式
+- `assistant_key` — API 密钥对象
 - `headers` / `params` / `body` — 透传给 `session.post`，可用于注入 `tools`、`temperature` 等参数
 - `timeout` — 请求超时时间（秒），默认 90s
 - 返回 `Response` 模型（Pydantic），包含 `choices`、`usage`、`id` 等
 
 ### ContextManager
 
-对话上下文组织器。内部通过 `_ContextsStatus` 维护状态。使用 `__slots__` 优化内存占用。
+对话上下文组织器。内部通过 `_ContextsStatus` 维护状态，支持脏标记（dirty flag）缓存机制。
 
-支持三种上下文块：
+支持三种上下文类型：
 
-| 上下文块 | 说明 |
-|---------|------|
-| `Context` | 普通消息（user / assistant） |
-| `ToolCallingBlock` | 工具调用块，包含请求与执行结果 |
+| 类型 | 说明 |
+|------|------|
+| `Context` | 普通消息（user / assistant / system） |
+| `ToolCallingBlock` | 工具调用块，包含请求与执行结果，支持 `verify_tool_ids()` 验证 |
 | `ContextsBlock` | 普通消息块，可包含多条连续 Context |
 
 ```python
@@ -188,55 +181,50 @@ ctx.set_prompt(Prompt(content="你是..."))
 # 添加用户消息
 ctx.add_context(Context(role="user", content="你好"))
 
-# 添加模型返回的工具调用
-ctx.add_context(ToolCallingsContext(tool_calls=[...]))
+# 添加工具调用上下文
+ctx.add_context(ToolCallingContext(tool_calls=[...]))
 
 # 添加工具执行结果
 ctx.add_context(ToolOutput(content="结果", tool_call_id="call_xxx"))
 
+# 添加上下文块
+ctx.add_context(ToolCallingBlock(tool_calling=..., tool_outputs=[...]))
+
 # 导出为 OpenAI messages 格式
 messages = ctx.to_list()     # -> List[Dict]
+
+# Token 管理
+ctx.set_token(114514)
+print(ctx.token)
 
 # 裁剪最早的一条上下文
 ctx.trim()
 
 # 清空（可选保留 Prompt）
 ctx.clear(keep_prompt=True)
-
-# Token 管理
-ctx.set_token(114514)
-print(ctx.token)
 ```
 
-> ⚠️ `ContextsBlock` 和 `ToolCallingBlock` 均实现了 `ContextsBlockProtocol`，支持 `__iter__` / `append` / `insert` / `delete` 操作。
+> 💡 `ContextManager` 支持 `to_file()` / `from_file()` 持久化上下文，且可在子类中重写为异步版本。
 
-### KeyManager
+### _ContextsStatus — 内部状态管理
 
-多密钥轮询管理器。自动索引轮转，无可用密钥时抛出 `RuntimeError`。
+`ContextManager` 内部通过 `_ContextsStatus` 管理上下文状态，支持脏标记机制：
 
-```python
-km = KeyManager(["sk-1", "sk-2"])
-
-km.get_available_key()  # 获取当前或下一个可用 Key
-km.get_current_key()    # 获取当前正在使用的 Key
-km.get_next_key()       # 强制切换到下一个 Key
-km.add_key("sk-3")
-km.remove_key("sk-1")
-```
+- 当上下文发生变化时自动标记为 `dirty`
+- `flatten_contexts()` 在 dirty 时自动重建缓存
+- 避免频繁调用时的重复计算
 
 ### ModelConfig
 
-模型配置定义。`model_alias` 不传则自动使用 `model_name`。
-
 ```python
 class ModelConfig(BaseModel):
-    model_name : str           # 模型名
-    model_alias: str           # 别名（默认 = model_name）
-    api_url    : str           # API 地址
-    model_keys : List[str]     # 至少 1 个 Key
+    model_name : str               # 模型名
+    model_alias: str | None = None # 别名（默认 = model_name）
+    api_url    : str               # API 地址
+    model_keys : List[AssistantKey | str]  # 至少 1 个 Key
 
-    max_token  : int = 0       # 最大生成长度
-    token_limit: int = 0       # Token 上限（用于压缩判断）
+    token_limit: int = 0           # Token 上限（用于压缩判断）
+    max_token  : int = 0           # 最大生成长度
 
     support_image: bool = False
     support_video: bool = False
@@ -245,14 +233,21 @@ class ModelConfig(BaseModel):
     support_think: bool = False
 ```
 
-### 工具 Schema 构建
+### AssistantKey
 
-两种方式构建 Tool Schema：
+```python
+class AssistantKey(BaseModel):
+    key          : str
+    is_enable    : bool = True
+    is_available : bool = True
+```
+
+### 工具 Schema 构建
 
 #### 方式一：语法糖（推荐）
 
 ```python
-from aioverse.utils.syntax_sugar import build_tool_schema, _Empty
+from aioverse.utils.syntax_sugar import build_tool_schema
 
 tool = build_tool_schema(
     tool_name="calculator",
@@ -269,7 +264,7 @@ tool = build_tool_schema(
 #### 方式二：原生 Pydantic 模型
 
 ```python
-from aioverse.base_models.tool_schema import Tool, Function, Parameters, Argument, _Empty
+from aioverse.models.tool_schema import Tool, Function, Parameters, Argument, _Empty
 
 tool = Tool(
     function=Function(
@@ -285,8 +280,6 @@ tool = Tool(
     )
 )
 ```
-
-> 还有野路子 `build_tool_schema_by_doc(func)`，通过解析函数注释中的 JSON 自动构建 Schema，仅供娱乐 😋
 
 ---
 
@@ -334,6 +327,61 @@ class ContextsBlockProtocol(ABC):
     def delete(self, index: int): ...
 ```
 
+`ToolCallingBlock` 额外提供：
+- `verify_tool_ids()` — 验证工具调用结果是否完整
+- `tool_calling_ids` — 懒加载的 tool_call_id 列表
+
+---
+
+## 📁 项目结构
+
+```
+aioverse/
+├── src/
+│   └── aioverse/
+│       ├── OpenAI.py                 # OpenAI API 客户端
+│       ├── Log.py                    # 日志系统
+│       ├── errors/
+│       │   └── ResponseCodeError.py  # API 错误响应
+│       ├── managers/
+│       │   └── context_manager.py    # 上下文管理器
+│       ├── models/
+│       │   ├── model_config.py       # 模型配置
+│       │   ├── assistant_key.py      # API Key 模型
+│       │   ├── _contexts_status.py   # 上下文内部状态
+│       │   ├── contexts/             # 对话上下文
+│       │   │   ├── base_context.py
+│       │   │   ├── prompt.py
+│       │   │   ├── user.py
+│       │   │   ├── tool_calling_context.py
+│       │   │   └── tool_output.py
+│       │   ├── blocks/               # 上下文块
+│       │   │   ├── contexts_block.py
+│       │   │   └── tool_calling_block.py
+│       │   ├── segments/             # 多模态内容片段
+│       │   │   ├── base_segment.py
+│       │   │   ├── text_segment.py
+│       │   │   ├── image_url_segment.py
+│       │   │   └── audio_segment.py
+│       │   ├── response/             # API 响应
+│       │   │   ├── response.py
+│       │   │   ├── choice.py
+│       │   │   └── usage.py
+│       │   ├── tool_schema.py        # 工具定义 Schema
+│       │   └── tool_calling.py       # 工具调用结果
+│       ├── protocols/                # 抽象协议层
+│       │   ├── contexts_block_protocol.py
+│       │   ├── log_protocol.py
+│       │   ├── log_format_protocol.py
+│       │   └── log_write_protocol.py
+│       └── utils/
+│           ├── holder.py             # NullObject
+│           └── syntax_sugar.py       # 语法糖
+├── pyproject.toml
+├── README.md
+└── CHANGELOG.md
+```
+
 ---
 
 ## 🛠️ 工具函数
@@ -353,6 +401,26 @@ await nope.some_method(1, 2, 3) # -> NullObject
 ```
 
 常用于可选依赖注入的默认值，优雅替代 `if xxx is not None` 检查。
+
+### build_tool_schema — 快速构建工具 Schema
+
+```python
+from aioverse.utils.syntax_sugar import build_tool_schema
+
+tool = build_tool_schema(
+    tool_name="my_tool",
+    tool_description="工具描述",
+    requirements=["arg1"],
+    arguments={
+        "arg1": ("string", "参数说明"),
+        "arg2": ("integer", "可选参数", 42),  # 有默认值
+    }
+)
+```
+
+### build_tool_schema_by_doc — 野路子（仅供娱乐）
+
+通过解析函数注释中的 JSON 自动构建 Schema 😋
 
 ---
 
@@ -377,13 +445,14 @@ except ResponseCodeError as e:
 
 | 模块 | 模型 | 说明 |
 |------|------|------|
-| `base_models.contexts` | `Context`, `Prompt`, `User`, `ToolCallingContext`, `ToolOutput` | 对话上下文 |
-| `base_models.segments` | `Segment`, `Text`, `ImageUrl`, `AudioInput` | 多模态内容片段 |
-| `base_models.model_config` | `ModelConfig` | 模型配置 |
-| `base_models.tool_schema` | `Tool`, `Function`, `Parameters`, `Argument` | 工具定义 Schema |
-| `base_models.tool_calling` | `ToolCalling`, `Function` | AI 返回的工具调用 |
+| `models.contexts` | `Context`, `Prompt`, `User`, `ToolCallingContext`, `ToolOutput` | 对话上下文 |
+| `models.segments` | `Segment`, `Text`, `ImageUrl`, `AudioInput` | 多模态内容片段 |
 | `models.blocks` | `ToolCallingBlock`, `ContextsBlock` | 上下文块 |
 | `models.response` | `Response`, `Choice`, `Usage` | API 响应体 |
+| `models.tool_schema` | `Tool`, `Function`, `Parameters`, `Argument`, `_Empty` | 工具定义 Schema |
+| `models.tool_calling` | `ToolCalling`, `Function` | AI 返回的工具调用 |
+| `models.model_config` | `ModelConfig` | 模型配置 |
+| `models.assistant_key` | `AssistantKey` | API 密钥 |
 | `models._contexts_status` | `_ContextsStatus` | ContextManager 内部状态 |
 
 ---

@@ -1,10 +1,9 @@
-from aioverse.Log				import AsyncLog, AsyncWriter, LogFormatter
-from aioverse.errors			import *
-from aioverse.protocols			import LogProtocol
-from aioverse.utils.holder		import NullObject
-from aioverse.managers			import ContextManager
-from aioverse.base_models		import ModelConfig, AssistantKey
-from aioverse.models.response	import Response
+from .Log				import AsyncLog, AsyncWriter, LogFormatter
+from .errors			import *
+from .protocols			import LogProtocol
+from .utils.holder		import NullObject
+from .managers			import ContextManager
+from .models			import Response, ModelConfig, AssistantKey
 
 # 类型注解
 from typing import Dict, List, Tuple, Any, Optional

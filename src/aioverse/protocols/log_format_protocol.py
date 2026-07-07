@@ -9,14 +9,10 @@ class LogFormatProtocol(ABC):
 	
 	# 必须实现的format方法
 	@abstractmethod
-	def format(
-		self,
-		text: str,
-		level: str
-	) -> str:
+	def format(self, text: str, level: str) -> str:
 		
 		"""
 		对日志内容格式化
 		"""
 		
-		pass
+		...

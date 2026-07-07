@@ -1,3 +1,43 @@
+# 0.4.3 更新日志
+
+## 新增
+
+1. `models._contexts_status` 新增内部状态管理模块，支持脏标记（dirty flag）缓存机制
+   - `flatten_contexts()` 在 dirty 时自动重建缓存
+   - 避免频繁 `to_list()` 调用时的重复计算
+2. `models.segments` 新增多模态内容模块，包含 `Text`、`ImageUrl`、`AudioInput` 等 Segment 类型
+3. `models.blocks` 新增上下文块模块：
+   - `ToolCallingBlock` — 工具调用块，包含请求与执行结果，支持 `verify_tool_ids()` 验证完整性
+   - `ContextsBlock` — 普通消息块，可包含多条连续 Context
+4. `models.assistant_key` 新增 `AssistantKey` 数据模型，支持 `is_enable`、`is_available` 状态管理
+5. `models.contexts` 新增 `User`、`ToolCallingContext`、`ToolOutput` 独立上下文类型
+6. `models.response` 新增 API 响应体模块：`Response`、`Choice`、`Usage`
+7. `protocols` 新增上下文块协议 `ContextsBlockProtocol`，定义 `__iter__`、`__len__`、`append`、`insert`、`delete` 接口
+8. `Context.set_token()` 新增 token 设置方法，支持 `exclude=True` 排除序列化
+
+## 重构
+
+1. 全面重构 `base_models` → `models`，所有模型按职能分组为子模块：
+   - `models/contexts/` — 对话上下文
+   - `models/blocks/` — 上下文块
+   - `models/segments/` — 多模态内容
+   - `models/response/` — API 响应
+2. `OpenAIClient.call()` 参数更新：
+   - 新增 `assistant_key` 显式参数，支持多 Key 管理
+   - 移除 `body` 注入中的 `tools` 参数合并，交由调用方控制
+3. `ContextManager` 内部全面使用 `_ContextsStatus` 管理状态
+   - 新增 `__slots__` 优化内存占用
+   - `to_file()` / `from_file()` 支持子类重写为异步版本
+4. `build_tool_schema_by_doc` 移至 `utils.syntax_sugar`（野路子功能）
+
+## 优化
+
+1. 完善所有 Pydantic 模型的类型注解与字段验证
+2. 优化 `Context` 的 `ConfigDict(slots=True)` 内存占用
+3. `_ContextsStatus` 使用 `PrivateAttr` 管理内部缓存，避免序列化污染
+
+---
+
 # 0.4.2 更新日志
 
 ## 新增
