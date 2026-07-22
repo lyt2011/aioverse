@@ -1,15 +1,17 @@
-from .base_context	import Context
-from ..segments		import Segment
+from .base_context	import BaseContext
+from ..segments		import BaseSegment
 from ..tool_calling	import ToolCalling
+from ...enums		import Roles
 
-from typing	import Literal, List
+from typing		import Literal, List
 
 
-# TODO 这里不用自定义(S什么鬼的那个)会导致输入与输出不一样
-class ToolCallingContext(Context):
+class ToolCallingContext(BaseContext):
 
-	role		: Literal["assistant"] = "assistant"
-	content		: str | List[Segment] | None = None
-	
-	# 新增tool_calls
+	role		: Literal[Roles.TOOL_CALLING] = Roles.TOOL_CALLING
 	tool_calls	: List[ToolCalling]
+
+	def __str__(self) -> str:
+
+		tool_arguments = "".join([tc.function.arguments for tc in self.tool_calls])
+		return self.content + tool_arguments

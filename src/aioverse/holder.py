@@ -16,15 +16,15 @@ class NullObject:
 	"""
 	
 	def __await__(self):
-		
-		async def _null(): return self
-		
+		async def _null():
+			return self
 		return _null().__await__()
 	
 	def __call__(self, *args, **kwargs):
-		
 		return self
 	
 	def __getattr__(self, name: str):
-		
 		return self
+
+
+null_object = NullObject()

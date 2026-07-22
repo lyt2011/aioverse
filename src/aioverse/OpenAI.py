@@ -1,78 +1,163 @@
-from .Log				import AsyncLog, AsyncWriter, LogFormatter
-from .errors			import *
-from .protocols			import LogProtocol
-from .utils.holder		import NullObject
-from .managers			import ContextManager
-from .models			import Response, ModelConfig, AssistantKey
+from .errors		import ResponseCodeError
+from .models		import (
+	Response,
+	Request,
+	BaseContext,
+	StreamChunk
+)
 
-# 类型注解
-from typing import Dict, List, Tuple, Any, Optional
-
+import logging
 import aiohttp
+import json
+
+from typing import List, Optional, AsyncIterator
+
+logger = logging.getLogger(__name__)
 
 
 class OpenAIClient:
 	
 	def __init__(
 		self,
-		model_config: ModelConfig,
 		session		: aiohttp.ClientSession,
-		async_log	: Optional[LogProtocol]	= None
+		api_url		: Optional[str] = None,
+		model_name	: Optional[str] = None
 	):
 		
-		self.model_config	= model_config
-		self.session		= session
+		self.api_url 	= api_url
+		self.model_name	= model_name
+		self.session	= session
+	
+	
+	def _ensure_ready(self) -> None:
 		
-		self.async_log = async_log or NullObject()
+		if self.model_name is None:
+			raise RuntimeError("OpenAIClient 实例必须含有 model_name")
+		if self.api_url is None:
+			raise RuntimeError("OpenAIClient 实例必须含有 api_url")
+	
+	def _build_request(
+		self,
+		context_list	: List[BaseContext],
+		assistant_key	: str, *,
+		stream			: bool = False
+	) -> Request:
+		
+		request = (
+			Request(url=self.api_url)
+			.set_header("Authorization", assistant_key)
+			.set_header("Content-Type", "application/json")
+			.set_body("model", self.model_name)
+			.set_body("messages", context_list)
+		)
+		
+		if stream:
+			request.set_body("stream", True)
+		
+		return request
+	
+	
+	async def _iter_sse_chunks(self, response: aiohttp.ClientResponse) -> AsyncIterator[StreamChunk]:
+		
+		buffer = ""
+		
+		async for chunk_bytes in response.content.iter_chunked(1024):
+			
+			buffer += chunk_bytes.decode("utf-8", errors="replace")
+			
+			while "\n" in buffer:
+				
+				line, buffer	= buffer.split("\n", 1)
+				line			= line.strip()
+				
+				if not line or not line.startswith("data: "):
+					continue
+				
+				data_str = line[6:]
+				
+				if data_str == "[DONE]":
+					logger.info("流式请求完成 [DONE]")
+					return
+				
+				try:
+					yield StreamChunk.model_validate_json(data_str)
+				
+				except Exception as e:
+					logger.warning(f"解析流式数据块失败: {e}, 原始数据: {data_str[:200]}")
+					continue
+	
 	
 	async def call(
-		self,
-		context_manager	: ContextManager		,
-		assistant_key	: AssistantKey			,
-		headers			: Dict[str, Any]	= {},
-		params			: Dict[str, Any]	= {},
-		body			: Dict[str, Any]	= {},
-		timeout			: int				= 90,
+		self, *,
+		context_list	: Optional[List[BaseContext]]	= None,
+		assistant_key	: Optional[str]					= None,
+		request			: Optional[Request]				= None
 	) -> Response:
 		
-		# 构建请求参数 优先保证用户输入有效性
-		params	= {**params}
-		headers	= {
-			"Authorization"	: assistant_key.key,
-			"Content-Type"	: "application/json",
-			**headers
-		}
-		body	= {
-			"model"			: self.model_config.model_name,
-			"messages"		: context_manager.to_list(),
-			**body
-		}
+		if request is None:
+			self._ensure_ready()
+			if context_list is None:
+				raise RuntimeError("函数必须传入 context_list")
+			if assistant_key is None:
+				raise RuntimeError("函数必须传入 assistant_key")
+			request = self._build_request(context_list, assistant_key)
 		
-		await self.async_log.log("参数初始化完成 开始请求AI", "info")
+		logger.info("参数初始化完成 开始请求AI")
 		
-		# 开始请求
 		async with self.session.post(
-			url		= self.model_config.api_url	,
-			headers	= headers					,
-			params	= params					,
-			json	= body						,
-			timeout = timeout
-		) as request:
-			
-			# 获取返回码
-			response_code = request.status
-			# 获取请求返回
-			response_json = await request.json()
+			url		= request.url,
+			headers	= request.headers,
+			params	= request.params,
+			json	= request.body,
+			timeout = request.timeout
+		) as response:
+			response_code = response.status
+			response_json = await response.json()
 		
-		await self.async_log.log(f"请求完成: {response_code}", "info")
+		logger.info(f"请求完成: {response_code}")
 		
-		# 返回码不为200
 		if response_code != 200:
-			
-			# 抛出报错 带上返回/请求码
-			raise ResponseCodeError(
-				code		= response_code,
-				response	= response_json
-			)
+			raise ResponseCodeError(code=response_code, response=response_json)
 		
 		return Response.model_validate(response_json)
+	
+	
+	async def call_stream(
+		self, *,
+		context_list	: Optional[List[BaseContext]]	= None,
+		assistant_key	: Optional[str]					= None,
+		request			: Optional[Request]				= None
+	) -> AsyncIterator[StreamChunk]:
+		
+		if request is None:
+			
+			self._ensure_ready()
+			
+			if context_list is None:
+				raise RuntimeError("函数必须传入 context_list")
+			if assistant_key is None:
+				raise RuntimeError("函数必须传入 assistant_key")
+			
+			request = self._build_request(context_list, assistant_key, stream=True)
+		
+		else:
+			request.set_body("stream", True)
+		
+		logger.info("流式参数初始化完成 开始请求AI")
+		
+		async with self.session.post(
+			url		= request.url,
+			headers	= request.headers,
+			params	= request.params,
+			json	= request.body,
+			timeout = request.timeout
+		) as response:
+			
+			if response.status != 200:
+				response_json = await response.json()
+				raise ResponseCodeError(code=response.status, response=response_json)
+			
+			async for chunk in self._iter_sse_chunks(response):
+				yield chunk
+		
+		logger.info("流式请求完成 (连接关闭)")

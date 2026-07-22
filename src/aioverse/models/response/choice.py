@@ -1,10 +1,10 @@
-from pydantic	import BaseModel, Field
+from pydantic	import BaseModel, Field, SerializeAsAny
 
-from ..contexts	import Context, ToolCallingContext
+from ..contexts	import BaseContext
 
 
 class Choice(BaseModel):
 	
 	finish_reason		: str
 	index				: int
-	message				: Context | ToolCallingContext
+	message				: SerializeAsAny[BaseContext]

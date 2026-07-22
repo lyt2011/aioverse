@@ -3,7 +3,7 @@
 [![Python Version](https://img.shields.io/badge/python-%3E%3D3.11-blue)](https://www.python.org/)
 [![Version](https://img.shields.io/badge/version-0.4.2-green)]()
 
-基于 `aiohttp` 构建的轻量异步 OpenAI API 请求库。内置**上下文管理**、**工具调用 (Function Calling)**、**多密钥轮询**与**多模态内容**支持。所有数据模型基于 `Pydantic v2`，开箱即用。
+基于 `aiohttp` 构建的轻量异步 OpenAI API 请求库。内置**上下文管理**、**工具调用 (Function Calling)**、**流式输出 (SSE)**、**多密钥轮询**与**多模态内容**支持。所有数据模型基于 `Pydantic v2`，开箱即用。
 
 > 设计哲学：**轻量、专注核心、拒绝过度封装**
 
@@ -12,12 +12,13 @@
 ## ✨ 特性
 
 - **纯异步** — 基于 `aiohttp` + `asyncio`，高并发无压力
+- **流式调用** — `call_stream()` 支持 SSE 流式响应，async generator 逐块产出
 - **工具调用** — 原生支持 Function Calling，工具 Schema 构建语法糖
 - **上下文管理** — 对话历史组织、System Prompt 管理、Token 追踪与裁剪，支持块式上下文（`ToolCallingBlock` / `ContextsBlock`）
 - **密钥轮询** — `KeyManager` 多 Key 自动轮询，避免单点限流
 - **多模态** — 内置 `Segment` 体系：文本、图片 URL、音频输入
 - **Pydantic 全栈** — 请求参数、上下文、Schema、响应体全部带类型校验
-- **可扩展日志** — 基于协议接口，支持自定义 Formatter 与 Writer，同步/异步双模式
+- **标准日志** — 基于标准库 `logging`，模块级 `logger` 单例
 - **空对象模式** — `NullObject` 安全吞掉任何调用，优雅处理可选依赖
 - **全链路类型注解** — IDE 补全体验拉满
 
@@ -140,7 +141,6 @@ class OpenAIClient:
         self,
         model_config: ModelConfig,
         session: aiohttp.ClientSession,
-        async_log: Optional[LogProtocol] = None,
     ): ...
 
     async def call(
@@ -285,35 +285,6 @@ tool = Tool(
 
 ## 🧩 扩展机制
 
-### 日志系统
-
-基于协议接口设计，支持自定义实现：
-
-| 协议 | 说明 |
-|------|------|
-| `LogProtocol` | 日志核心接口，包含 `log(text, level, flush)` 方法 |
-| `LogFormatProtocol` | 格式化接口，负责日志文本与颜色格式化 |
-| `LogWriteProtocol` | 写入接口，负责带缓冲区的文件写入 |
-
-内置实现：
-
-| 类 | 说明 |
-|----|------|
-| `AsyncLog` | 异步日志，`log()` 为 async 方法 |
-| `SyncLog` | 同步日志，`log()` 为普通方法 |
-| `AsyncWriter` | 异步文件写入，支持缓冲区批量 flush |
-| `SyncWriter` | 同步文件写入，支持缓冲区批量 flush |
-| `LogFormatter` | 默认格式化器，支持颜色分级（info/warn/error/debug/successful） |
-
-```python
-from aioverse.Log import get_log
-
-# 获取日志实例（全局单例）
-log = get_log("app.log", "myapp", is_async=True)
-await log.log("服务启动成功", "successful")
-await log.log("发生错误", "error", flush=True)
-```
-
 ### 上下文块协议 (ContextsBlockProtocol)
 
 所有上下文块（`ToolCallingBlock`、`ContextsBlock`）均实现该协议：
@@ -340,7 +311,7 @@ aioverse/
 ├── src/
 │   └── aioverse/
 │       ├── OpenAI.py                 # OpenAI API 客户端
-│       ├── Log.py                    # 日志系统
+
 │       ├── errors/
 │       │   └── ResponseCodeError.py  # API 错误响应
 │       ├── managers/

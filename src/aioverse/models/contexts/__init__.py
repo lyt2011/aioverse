@@ -1,14 +1,16 @@
-from .base_context			import Context
-from .prompt				import Prompt
-from .user					import User
+from .base_context			import BaseContext
+from .system_context		import SystemContext
+from .user_context			import UserContext
+from .assistant_context		import AssistantContext
 from .tool_calling_context	import ToolCallingContext
-from .tool_output			import ToolOutput
+from .tool_output_context	import ToolOutputContext
 
 
 __all__ = [
-	"Context",
-	"Prompt",
-	"User",
+	"BaseContext",
+	"SystemContext",
+	"UserContext",
+	"AssistantContext",
 	"ToolCallingContext",
-	"ToolOutput"
+	"ToolOutputContext"
 ]

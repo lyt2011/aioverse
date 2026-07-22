@@ -1,9 +1,20 @@
-from .base_segment	import Segment
+from .base_segment	import BaseSegment
 
-from typing	import Literal
+from typing	import Literal, Any, Dict
 
 
-# 文本多模态
-class Text(Segment):
+class TextSegment(BaseSegment):
 	
-	type: Literal["text"] = "text"
+	"""文本消息段"""
+	
+	type	: Literal["text"]	= "text"
+	text	: str
+	
+	def do_serialize(self) -> Dict[str, Any]:
+		
+		"""返回 OpenAI 兼容格式: {"type": "text", "text": "..."}"""
+		
+		return {
+			"type"	: "text",
+			"text"	: self.text
+		}

@@ -1,3 +1,28 @@
+# 0.4.4 更新日志
+
+## 新增
+
+1. `models.response.delta` 新增 `Delta` 模型，用于 SSE 流式增量数据
+2. `models.response.stream_chunk` 新增 `StreamChunk` / `StreamChoice` 模型，用于流式响应解析
+3. `models.tool_calling.ToolCalling` 新增可选 `index` 字段，支持流式分片合并
+4. `OpenAIClient.call_stream()` 新增流式调用方法，返回 async generator 逐块产出 `StreamChunk`
+5. `OpenAIClient._iter_sse_chunks()` 新增 SSE 行解析器，处理 `data:` 行与 `[DONE]` 终止信号
+6. `models.tool_calling.ToolCalling` 所有字段添加默认值（`id=""` / `type="function"`），`Function` 字段添加默认值（`name=""` / `arguments=""`）
+
+## 修复
+
+1. `Delta.tool_calls` 类型从 `List[ToolCalling]` 改为 `List[Dict]`，修复流式 tool_calls 分片中 `id`/`type` 仅首个 chunk 存在导致后续 chunk 解析失败、arguments 丢失的问题
+
+## 重构
+
+1. 删除自定义日志系统 `Log.py` 及 `protocols/log_*.py`，全面改用标准库 `logging`
+   - 各模块通过 `logger = logging.getLogger(__name__)` 获取全局单例
+   - `OpenAIClient` 移除 `async_log` 参数
+2. `OpenAIClient` 提取 `_ensure_ready()` / `_build_request()` 方法，`call()` 与 `call_stream()` 共用请求构建逻辑
+2. `call_stream()` 扁平化重构，嵌套层级从 6 层降至 3 层
+
+---
+
 # 0.4.3 更新日志
 
 ## 新增

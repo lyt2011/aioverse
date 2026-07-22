@@ -1,7 +1,7 @@
-from pydantic	import BaseModel
+from pydantic	import BaseModel, Field
 
 
 class Function(BaseModel):
 	
-	name		: str
-	arguments	: str # Json
+	name		: str	= Field(default="")
+	arguments	: str	= Field(default="")

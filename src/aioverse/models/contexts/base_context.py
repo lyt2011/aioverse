@@ -1,17 +1,53 @@
-from pydantic	import BaseModel, ConfigDict, Field
-from typing		import List, Optional
+from pydantic	import BaseModel, ConfigDict, Field, SerializeAsAny, model_validator
+from typing		import List, Optional, Any, Union, Dict
 
-from ..segments	import Segment
+from ..segments	import (
+	BaseSegment,
+	TextSegment,
+	ImageUrlSegment,
+	ImageBase64Segment,
+	AudioInputSegment,
+	FileSegment,
+	UnknownSegment
+)
+from ...enums	import Roles
 
 
-class Context(BaseModel):
+SEGMENTS_LIST = List[Union[
+	SerializeAsAny[TextSegment],			# 最高频 优先匹配
+	SerializeAsAny[ImageUrlSegment],
+	SerializeAsAny[ImageBase64Segment],
+	SerializeAsAny[AudioInputSegment],
+	SerializeAsAny[FileSegment],
+	SerializeAsAny[UnknownSegment],			# 兜底 匹配任意未知 type
+	SerializeAsAny[BaseSegment],			# 最后手段
+]]
+
+
+class BaseContext(BaseModel):
 	
-	model_config = ConfigDict(slots=True)
+	model_config = ConfigDict(slots=True, extra='allow')
 	
-	role				: str
-	content				: str | List[Segment]
-	reasoning_content	: Optional[str] = None
+	role				: Roles						= Field(..., description="上下文角色")
+	content				: Union[str, SEGMENTS_LIST]	= Field(..., description="上下文正文")
+	reasoning_content	: str						= Field(..., description="上下文思维链")
 	
-	token: int = Field(exclude=True, default=0)
+	def __str__(self) -> str:
+		return self.content
 	
-	def set_token(self, token: int): self.token = token
+	
+	@model_validator(mode="before")
+	def none_to_string(cls, data: Dict[str, Any]) -> Dict[str, Any]:
+		
+		"""确保正文和思维链必须是字符串"""
+		
+		content		= data.get("content")
+		r_content	= data.get("reasoning_content")
+		
+		if content is None:
+			data["content"] = ""
+		
+		if r_content is None:
+			data["reasoning_content"] = ""
+		
+		return data
