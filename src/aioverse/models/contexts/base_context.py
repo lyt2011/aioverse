@@ -7,7 +7,10 @@ from ..segments	import (
 	ImageUrlSegment,
 	ImageBase64Segment,
 	AudioInputSegment,
+	AudioUrlSegment,
 	FileSegment,
+	VideoInputSegment,
+	VideoUrlSegment,
 	UnknownSegment
 )
 from ...enums	import Roles
@@ -18,7 +21,10 @@ SEGMENTS_LIST = List[Union[
 	SerializeAsAny[ImageUrlSegment],
 	SerializeAsAny[ImageBase64Segment],
 	SerializeAsAny[AudioInputSegment],
+	SerializeAsAny[AudioUrlSegment],
 	SerializeAsAny[FileSegment],
+	SerializeAsAny[VideoInputSegment],
+	SerializeAsAny[VideoUrlSegment],
 	SerializeAsAny[UnknownSegment],			# 兜底 匹配任意未知 type
 	SerializeAsAny[BaseSegment],			# 最后手段
 ]]

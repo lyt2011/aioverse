@@ -10,11 +10,14 @@ from .contexts	import (
 from .segments		import (
 	BaseSegment,
 	AudioInputSegment,
+	AudioUrlSegment,
 	FileSegment,
 	ImageBase64Segment,
 	ImageUrlSegment,
 	TextSegment,
-	UnknownSegment
+	UnknownSegment,
+	VideoInputSegment,
+	VideoUrlSegment
 )
 from .tool_calling	import (
 	Function,
@@ -44,11 +47,14 @@ __all__ = [
 	# segments
 	"BaseSegment",
 	"AudioInputSegment",
+	"AudioUrlSegment",
 	"FileSegment",
 	"ImageBase64Segment",
 	"ImageUrlSegment",
 	"TextSegment",
 	"UnknownSegment",
+	"VideoInputSegment",
+	"VideoUrlSegment",
 	
 	# tool_calling
 	"Function",

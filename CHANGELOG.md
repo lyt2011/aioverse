@@ -1,3 +1,13 @@
+# 0.4.5 更新日志
+
+## 新增
+
+1. `models.segments` 新增 `AudioUrlSegment`，支持 URL 音频输入
+2. `models.segments` 新增 `VideoInputSegment` 与 `VideoUrlSegment`，支持 Base64 和 URL 视频输入
+3. `BaseContext` 的多模态内容 union 支持显式音频、视频 Segment，并保留 JSON round-trip 类型
+
+---
+
 # 0.4.4 更新日志
 
 ## 新增

@@ -5,7 +5,7 @@ from typing		import Dict, List, Any, Optional, Self
 class Request(BaseModel):
 	
 	url		: str = Field(..., description="需要请求的网址")
-	timeout	: int = Field(default=900)
+	timeout	: int = Field(default=300)
 	
 	_headers: Dict[str, Any] = PrivateAttr(default_factory=dict)
 	_body	: Dict[str, Any] = PrivateAttr(default_factory=dict)

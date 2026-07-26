@@ -1,7 +1,7 @@
 # aioverse 🌌
 
 [![Python Version](https://img.shields.io/badge/python-%3E%3D3.11-blue)](https://www.python.org/)
-[![Version](https://img.shields.io/badge/version-0.4.2-green)]()
+[![Version](https://img.shields.io/badge/version-0.4.5-green)]()
 
 基于 `aiohttp` 构建的轻量异步 OpenAI API 请求库。内置**上下文管理**、**工具调用 (Function Calling)**、**流式输出 (SSE)**、**多密钥轮询**与**多模态内容**支持。所有数据模型基于 `Pydantic v2`，开箱即用。
 
@@ -16,7 +16,7 @@
 - **工具调用** — 原生支持 Function Calling，工具 Schema 构建语法糖
 - **上下文管理** — 对话历史组织、System Prompt 管理、Token 追踪与裁剪，支持块式上下文（`ToolCallingBlock` / `ContextsBlock`）
 - **密钥轮询** — `KeyManager` 多 Key 自动轮询，避免单点限流
-- **多模态** — 内置 `Segment` 体系：文本、图片 URL、音频输入
+- **多模态** — 内置 `Segment` 体系：文本、图片、音频和视频输入
 - **Pydantic 全栈** — 请求参数、上下文、Schema、响应体全部带类型校验
 - **标准日志** — 基于标准库 `logging`，模块级 `logger` 单例
 - **空对象模式** — `NullObject` 安全吞掉任何调用，优雅处理可选依赖
@@ -120,14 +120,29 @@ if response.choices[0].finish_reason == "tool_calls":
 ### 多模态内容
 
 ```python
-from aioverse.models.segments import Text, ImageUrl
+from aioverse.models import (
+    AudioInputSegment,
+    AudioUrlSegment,
+    TextSegment,
+    UserContext,
+    VideoInputSegment,
+    VideoUrlSegment,
+)
 
-# 文本 + 图片混合消息
-context = Context(role="user", content=[
-    Text(text="这张图里有什么？"),
-    ImageUrl(url="https://example.com/image.jpg"),
+# 文本 + 音频 / 视频混合消息
+context = UserContext(content=[
+    TextSegment(text="请分析这些媒体内容。"),
+    AudioInputSegment(data="...", format="wav"),
+    AudioUrlSegment(url="https://example.com/audio.mp3"),
+    VideoInputSegment(data="...", format="mp4"),
+    VideoUrlSegment(url="https://example.com/video.mp4"),
 ])
 ```
+
+`AudioInputSegment` 与 `VideoInputSegment` 接收 Base64 数据；
+`AudioUrlSegment` 与 `VideoUrlSegment` 引用远程 URL。四类段都支持可选
+`format` 字段。它们只描述请求内容，不负责本地读取、上传、下载、转码或抽帧；
+实际端点是否接受对应 `type` 由调用方按模型能力决定。
 
 ---
 
@@ -417,7 +432,7 @@ except ResponseCodeError as e:
 | 模块 | 模型 | 说明 |
 |------|------|------|
 | `models.contexts` | `Context`, `Prompt`, `User`, `ToolCallingContext`, `ToolOutput` | 对话上下文 |
-| `models.segments` | `Segment`, `Text`, `ImageUrl`, `AudioInput` | 多模态内容片段 |
+| `models.segments` | `BaseSegment`, `TextSegment`, `ImageUrlSegment`, `AudioInputSegment`, `AudioUrlSegment`, `VideoInputSegment`, `VideoUrlSegment` | 多模态内容片段 |
 | `models.blocks` | `ToolCallingBlock`, `ContextsBlock` | 上下文块 |
 | `models.response` | `Response`, `Choice`, `Usage` | API 响应体 |
 | `models.tool_schema` | `Tool`, `Function`, `Parameters`, `Argument`, `_Empty` | 工具定义 Schema |

@@ -95,11 +95,13 @@ class OpenAIClient:
 	) -> Response:
 		
 		if request is None:
+			
 			self._ensure_ready()
 			if context_list is None:
 				raise RuntimeError("函数必须传入 context_list")
 			if assistant_key is None:
 				raise RuntimeError("函数必须传入 assistant_key")
+			
 			request = self._build_request(context_list, assistant_key)
 		
 		logger.info("参数初始化完成 开始请求AI")
@@ -154,10 +156,13 @@ class OpenAIClient:
 		) as response:
 			
 			if response.status != 200:
-				response_json = await response.json()
-				raise ResponseCodeError(code=response.status, response=response_json)
+				response_text = await response.text()
+				raise ResponseCodeError(code=response.status, response=response_text)
 			
-			async for chunk in self._iter_sse_chunks(response):
-				yield chunk
-		
-		logger.info("流式请求完成 (连接关闭)")
+			try:
+				async for chunk in self._iter_sse_chunks(response):
+					yield chunk
+			except GeneratorExit:
+				logger.info("流式请求被中断 (stop)")
+			else:
+				logger.info("流式请求完成 (连接关闭)")
