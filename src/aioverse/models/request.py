@@ -3,9 +3,15 @@ from typing		import Dict, List, Any, Optional, Self
 
 
 class Request(BaseModel):
-	
-	url		: str = Field(..., description="需要请求的网址")
-	timeout	: int = Field(default=300)
+	"""一次 HTTP 请求的可变构建器。
+
+	``timeout`` 覆盖 aiohttp 的完整请求生命周期；``stream_idle_timeout`` 仅限制
+	流式请求等待下一个已解析数据块的时间，设为 None 时关闭该额外 watchdog。
+	"""
+
+	url				: str = Field(..., description="需要请求的网址")
+	timeout			: float = Field(default=300, gt=0)
+	stream_idle_timeout	: Optional[float] = Field(default=60, gt=0)
 	
 	_headers: Dict[str, Any] = PrivateAttr(default_factory=dict)
 	_body	: Dict[str, Any] = PrivateAttr(default_factory=dict)
@@ -30,4 +36,3 @@ class Request(BaseModel):
 	@property
 	def params(self):
 		return self._params
-	

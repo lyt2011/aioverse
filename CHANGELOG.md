@@ -1,3 +1,20 @@
+# 0.4.6 更新日志
+
+## 新增
+
+1. `OpenAIClient.call_stream()` 增加流式空闲超时，限制等待下一个已解析响应块的时间
+2. SSE 解析器支持 UTF-8 跨传输分块、多行 `data:` 事件、缺少最终换行的 EOF 和 `[DONE]`
+3. 连续 SSE 数据解析失败达到阈值时抛出 `SSEParseError`，避免静默吞掉损坏流
+4. 非 200 响应会优先解析 JSON 错误体，`Response` 也会在 HTTP 成功后继续进行 Pydantic 校验
+5. `Request` 增加 `stream_idle_timeout` 字段，默认 60 秒；设为 `None` 可关闭额外的流式 watchdog
+
+## 修复
+
+1. 提前停止消费流式生成器时主动关闭内部 SSE 迭代器，确保 HTTP 响应及时释放
+2. 请求消息构建时将 Pydantic 上下文转换为 JSON 模式，避免直接把模型对象交给 HTTP 客户端
+
+---
+
 # 0.4.5 更新日志
 
 ## 新增
