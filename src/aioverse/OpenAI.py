@@ -33,51 +33,15 @@ class OpenAIClient:
 	"""
 
 	def __init__(
-		self,
-		session		: aiohttp.ClientSession,
-		api_url		: Optional[str] = None,
-		model_name	: Optional[str] = None
+		self, *, 
+		session: Optional[aiohttp.ClientSession]	= None
 	):
 		
-		self.api_url 	= api_url
-		self.model_name	= model_name
-		self.session	= session
+		# 手动控制或运行时创建
+		self.session = session
 	
-	
-	def _ensure_ready(self) -> None:
-		
-		if self.model_name is None:
-			raise RuntimeError("OpenAIClient 实例必须含有 model_name")
-		if self.api_url is None:
-			raise RuntimeError("OpenAIClient 实例必须含有 api_url")
-	
-	def _build_request(
-		self,
-		context_list	: List[BaseContext],
-		assistant_key	: str, *,
-		stream			: bool = False
-	) -> Request:
-		
-		messages = [
-			context.model_dump(mode="json", exclude_none=True)
-			if hasattr(context, "model_dump")
-			else context
-			for context in context_list
-		]
-
-		request = (
-			Request(url=self.api_url)
-			.set_header("Authorization", assistant_key)
-			.set_header("Content-Type", "application/json")
-			.set_body("model", self.model_name)
-			.set_body("messages", messages)
-		)
-		
-		if stream:
-			request.set_body("stream", True)
-		
-		return request
-	
+	def _get_session(self) -> aiohttp.ClientSession:
+		return self.session or aiohttp.ClientSession()
 	
 	async def _iter_sse_chunks(self, response: aiohttp.ClientResponse) -> AsyncIterator[StreamChunk]:
 		buffer = ""
@@ -163,30 +127,15 @@ class OpenAIClient:
 				yield parsed
 	
 	
-	async def call(
-		self, *,
-		context_list	: Optional[List[BaseContext]]	= None,
-		assistant_key	: Optional[str]					= None,
-		request			: Optional[Request]				= None
-	) -> Response:
+	async def call(self, request: Request) -> Response:
 		
-		if request is None:
-			
-			self._ensure_ready()
-			if context_list is None:
-				raise RuntimeError("函数必须传入 context_list")
-			if assistant_key is None:
-				raise RuntimeError("函数必须传入 assistant_key")
-			
-			request = self._build_request(context_list, assistant_key)
+		session = self._get_session()
 		
-		logger.info("参数初始化完成 开始请求AI")
-		
-		async with self.session.post(
+		async with session.post(
 			url		= request.url,
 			headers	= request.headers,
 			params	= request.params,
-			json		= request.body,
+			json	= request.body,
 			timeout = request.timeout
 		) as response:
 			response_code = response.status
@@ -205,53 +154,40 @@ class OpenAIClient:
 		return Response.model_validate_json(response_text)
 	
 	
-	async def call_stream(
-		self, *,
-		context_list	: Optional[List[BaseContext]]	= None,
-		assistant_key	: Optional[str]					= None,
-		request			: Optional[Request]				= None
-	) -> AsyncIterator[StreamChunk]:
+	async def call_stream(self, request: Request) -> AsyncIterator[StreamChunk]:
 		
-		if request is None:
-			
-			self._ensure_ready()
-			
-			if context_list is None:
-				raise RuntimeError("函数必须传入 context_list")
-			if assistant_key is None:
-				raise RuntimeError("函数必须传入 assistant_key")
-			
-			request = self._build_request(context_list, assistant_key, stream=True)
+		session = self._get_session()
 		
-		else:
-			# Request 是可变对象；调用方复用它时会观察到 stream=True。
-			request.set_body("stream", True)
-		
-		logger.info("流式参数初始化完成 开始请求AI")
-		
-		async with self.session.post(
+		async with session.post(
 			url		= request.url,
 			headers	= request.headers,
 			params	= request.params,
-			json		= request.body,
+			json	= request.body,
 			timeout = request.timeout
 		) as response:
 			
 			if response.status != 200:
+				
 				response_text = await response.text()
+				
 				try:
 					response_data = json.loads(response_text)
+				
 				except (TypeError, ValueError):
 					response_data = response_text
+				
 				raise ResponseCodeError(code=response.status, response=response_data)
 			
 			chunk_iterator = None
+			
 			try:
-				chunk_iterator = self._iter_sse_chunks(response).__aiter__()
-				idle_timeout = request.stream_idle_timeout
+				
+				chunk_iterator	= self._iter_sse_chunks(response).__aiter__()
+				idle_timeout	= request.stream_idle_timeout
 
 				while True:
 					try:
+						
 						if idle_timeout is None:
 							chunk = await chunk_iterator.__anext__()
 						else:
@@ -261,20 +197,24 @@ class OpenAIClient:
 								chunk_iterator.__anext__(),
 								timeout=idle_timeout,
 							)
+					
 					except StopAsyncIteration:
 						break
+					
 					except asyncio.TimeoutError as exception:
-						raise asyncio.TimeoutError(
-							f"流式响应在{idle_timeout}秒内没有产生下一个数据块"
-						) from exception
+						raise asyncio.TimeoutError(f"流式响应在 {idle_timeout} 秒内没有产生下一个数据块") from exception
 
 					yield chunk
+			
 			except GeneratorExit:
 				logger.info("流式请求被中断 (stop)")
 				raise
+			
 			else:
 				logger.info("流式请求完成 (连接关闭)")
+			
 			finally:
+				
 				# 提前停止消费时也要关闭内层生成器，确保 response 上下文退出前释放解析状态。
 				if chunk_iterator is not None:
 					aclose = getattr(chunk_iterator, "aclose", None)

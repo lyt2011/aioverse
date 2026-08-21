@@ -1,3 +1,17 @@
+# 0.4.7 更新日志
+
+## 新增
+1. `models.Request` 新增 `build` 方法，具体用法可自行研究😋 ~~跟直接实例化没啥区别，就是可读性更高了~~
+
+## 删除
+1. `OpenAIClient` 的 `call` 与 `call_stream` 参数，仅保留 `request` 作为位置/关键字参数
+2. `OpenAIClient` 彻底变为无状态类，仅保留 `session` 参数，未传入则在运行时使用 `aiohttp.ClientSession` 默认参数创建
+3. `models.Request` 删除原有的 `@property` 函数，改为直接访问
+
+## Features
+1. 把 `OpenAIClient` 的 `call` 与 `call_stream` 分离成两个单独的方法 而不是集中在一个类中🤓
+
+
 # 0.4.6 更新日志
 
 ## 新增

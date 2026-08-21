@@ -31,6 +31,8 @@ SEGMENTS_LIST = List[Union[
 
 
 class BaseContext(BaseModel):
+
+	"""上下文基类"""
 	
 	model_config = ConfigDict(slots=True, extra='allow')
 	
