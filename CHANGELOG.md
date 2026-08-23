@@ -1,3 +1,34 @@
+# 0.5.0 更新日志
+
+## 重构
+
+1. 删除 `OpenAIClient` 类及 `OpenAI.py`，API 入口改为 `core` 模块的顶层函数
+2. 删除 `holder.py`（`NullObject`），移至 `/sdcard/` 归档
+3. 删除 `response.py`（`decode_error_body`），非 200 响应直接以纯文本形式抛出
+4. `call_stream` → `chat_completion_stream`（中间版本，后续合并）
+5. 合并 `chat_completion` 与 `chat_completion_stream` 为统一接口 `chat_completion()`，返回 `_ChatCompletion` 包装对象，同时支持 `await`（非流式 → `Response`）和 `async for`（流式 → `StreamChunk`）
+6. 流式与非流式根据响应头 `content-type` 自动分流（`application/json` vs `text/event-stream`），不再需要调用方选择不同入口
+7. 删除 `chat_completion_stream` 导出，`core/__init__.py` 仅导出 `chat_completion` 和 `iter_stream_chunks`
+8. `_ChatCompletion` 新增 `__anext__` 和 `aclose` 方法，支持 `anext()` / `aclose()` 直接调用
+9. `chat_completion.py` 只保留公开入口 `chat_completion` 与包装类 `_ChatCompletion`，传输辅助（`_request_context`、`iter_stream_chunks`、`_iter_with_idle_timeout`、`_stream_impl`）迁移到新文件 `core/_transport.py`
+10. `chat_completion.py` 增加 `from __future__ import annotations`，类型注解 `-> "_ChatCompletion"` 改为直接的 `-> _ChatCompletion`
+
+## 删除
+
+1. `OpenAIClient` 类
+2. `holder.py`（`NullObject`）
+3. `response.py`（`decode_error_body`）
+4. `chat_completion_stream` 函数（合并入 `chat_completion`）
+5. `chat_completion.py` 中的下划线内部函数（迁至 `core/_transport.py`）
+
+## 新增
+
+1. `core.chat_completion` — 统一入口，根据 `content-type` 自动分流
+2. `_ChatCompletion.__anext__` — 支持 `anext()` 逐块消费
+3. `_ChatCompletion.aclose` — 支持提前关闭流式响应
+4. `core/_transport.py` — 内部传输辅助模块
+
+
 # 0.4.7 更新日志
 
 ## 新增

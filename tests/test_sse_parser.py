@@ -4,8 +4,8 @@ import json
 import unittest
 import asyncio
 
-from aioverse.OpenAI import OpenAIClient
-from aioverse.errors import SSEParseError
+from aioverse.core import chat_completion, iter_stream_chunks
+from aioverse.errors import ResponseCodeError, SSEParseError
 from aioverse.models import Request
 
 
@@ -21,10 +21,11 @@ class _Content:
 
 class _Response:
 
-    def __init__(self, chunks, *, status=200, text=""):
+    def __init__(self, chunks, *, status=200, text="", content_type=""):
         self.content = _Content(chunks)
         self.status = status
         self._text = text
+        self.headers = {"content-type": content_type}
 
     async def text(self):
         return self._text
@@ -66,8 +67,12 @@ def _chunk_json(content="answer"):
     }, ensure_ascii=False)
 
 
-async def _collect(client, response):
-    return [chunk async for chunk in client._iter_sse_chunks(response)]
+async def _collect(response):
+    return [chunk async for chunk in iter_stream_chunks(response)]
+
+
+def _stream_response(chunks, *, status=200, text=""):
+    return _Response(chunks, status=status, text=text, content_type="text/event-stream")
 
 
 class SseParserTests(unittest.IsolatedAsyncioTestCase):
@@ -81,7 +86,7 @@ class SseParserTests(unittest.IsolatedAsyncioTestCase):
             "data: [DONE]\n\n"
         ).encode()
 
-        chunks = await _collect(OpenAIClient(session=None), _Response([payload]))
+        chunks = await _collect(_Response([payload]))
 
         self.assertEqual(len(chunks), 1)
         self.assertEqual(chunks[0].choices[0].delta.content, "answer")
@@ -91,7 +96,6 @@ class SseParserTests(unittest.IsolatedAsyncioTestCase):
         split_at = payload.index(chr(0x4f60).encode()) + 1
 
         chunks = await _collect(
-            OpenAIClient(session=None),
             _Response([payload[:split_at], payload[split_at:]]),
         )
 
@@ -100,7 +104,7 @@ class SseParserTests(unittest.IsolatedAsyncioTestCase):
     async def test_parser_processes_event_left_in_eof_buffer(self):
         payload = f"data: {_chunk_json('eof')}".encode()
 
-        chunks = await _collect(OpenAIClient(session=None), _Response([payload]))
+        chunks = await _collect(_Response([payload]))
 
         self.assertEqual(len(chunks), 1)
         self.assertEqual(chunks[0].choices[0].delta.content, "eof")
@@ -109,53 +113,69 @@ class SseParserTests(unittest.IsolatedAsyncioTestCase):
         payload = b"data: {bad}\n\ndata: {also bad}\n\ndata: {still bad}\n\n"
 
         with self.assertRaises(SSEParseError):
-            await _collect(OpenAIClient(session=None), _Response([payload]))
+            await _collect(_Response([payload]))
 
-    async def test_call_stream_applies_chunk_idle_timeout(self):
+    async def test_chat_completion_applies_chunk_idle_timeout(self):
         class HangingContent:
             async def iter_chunked(self, _size):
                 await asyncio.Event().wait()
                 yield b""
 
-        response = _Response([])
+        response = _stream_response([])
         response.content = HangingContent()
         session = _Session(response)
-        client = OpenAIClient(session=session)
         request = Request(url="https://example.invalid")
         request.stream_idle_timeout = 0.01
 
         with self.assertRaises(asyncio.TimeoutError):
-            async for _ in client.call_stream(request=request):
+            async for _ in chat_completion(request=request, session=session):
                 pass
 
         self.assertTrue(session.post_context.closed)
 
-    async def test_call_stream_preserves_json_error_body(self):
+    async def test_chat_completion_preserves_json_error_body(self):
         response = _Response([], status=429, text='{"error":"rate limited"}')
         session = _Session(response)
-        client = OpenAIClient(session=session)
         request = Request(url="https://example.invalid")
 
         with self.assertRaises(Exception) as context:
-            async for _ in client.call_stream(request=request):
+            async for _ in chat_completion(request=request, session=session):
                 pass
 
         self.assertEqual(context.exception.code, 429)
-        self.assertEqual(context.exception.response, {"error": "rate limited"})
+        self.assertEqual(context.exception.response, '{"error":"rate limited"}')
 
-
-    async def test_call_stream_closes_response_when_explicitly_closed(self):
+    async def test_chat_completion_closes_response_when_explicitly_closed(self):
         payload = f"data: {_chunk_json('partial')}\n\n".encode()
-        response = _Response([payload])
+        response = _stream_response([payload])
         session = _Session(response)
-        client = OpenAIClient(session=session)
         request = Request(url="https://example.invalid")
-        stream = client.call_stream(request=request)
+        stream = chat_completion(request=request, session=session)
 
         await anext(stream)
         self.assertFalse(session.post_context.closed)
         await stream.aclose()
 
+        self.assertTrue(session.post_context.closed)
+
+    async def test_chat_completion_resolve_parses_json_response(self):
+        response = _Response([], text=json.dumps({
+            "id": "resp-1",
+            "created": 1,
+            "model": "demo",
+            "object": "chat.completion",
+            "choices": [{
+                "index": 0,
+                "message": {"role": "assistant", "content": "answer"},
+                "finish_reason": "stop",
+            }],
+        }))
+        session = _Session(response)
+        request = Request(url="https://example.invalid")
+
+        result = await chat_completion(request=request, session=session)
+
+        self.assertEqual(result.choices[0].message.content, "answer")
         self.assertTrue(session.post_context.closed)
 
 
